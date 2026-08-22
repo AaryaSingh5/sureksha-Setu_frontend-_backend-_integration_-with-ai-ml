@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #FAF7F2;
+  }
+}
+
+.font-editorial {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+@keyframes slow-drift {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.06) translate(-0.8%, -0.4%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.animate-slow-drift {
+  animation: slow-drift 80s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slow-drift {
+    animation: none !important;
+    transform: none !important;
+  }
+}
