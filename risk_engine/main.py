@@ -59,6 +59,13 @@ class SMSGateway:
 @app.on_event("startup")
 def startup_event():
     database.init_db()
+    # Preload the ML model and metadata into memory on startup
+    try:
+        import anomaly_detection
+        anomaly_detection.load_model_and_metadata()
+        print("[RISK ENGINE] ML Anomaly Detection Model preloaded successfully.")
+    except Exception as e:
+        print(f"[RISK ENGINE] Warning preloading model: {e}")
 
 @app.post("/tourist/location")
 def ingest_location(ping: LocationPing):
