@@ -204,3 +204,105 @@ def get_offline_geofences():
         "caution_zones": regional_context.CAUTION_ZONES,
         "safe_zones": regional_context.SAFE_ZONES
     }
+
+
+class DigitalIDIssueRequest(BaseModel):
+    tourist_id: str
+    kyc_hash: str
+    valid_until: datetime
+
+@app.post("/identity/issue")
+def issue_digital_identity(req: DigitalIDIssueRequest):
+    try:
+        from identity.did_service import issue_id
+        res = issue_id(req.tourist_id, req.kyc_hash, req.valid_until)
+        return {
+            "data": {
+                "tourist_id": res["tourist_id"],
+                "did": res["did"],
+                "kyc_hash": res["kyc_hash"],
+                "issued_at": res["issued_at"],
+                "valid_until": res["valid_until"],
+                "is_active": bool(res["is_active"])
+            },
+            "message": "Tourist digital identity successfully generated and anchored to audit ledger"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/identity/verify/{tourist_id}")
+def verify_tourist_identity(tourist_id: str):
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tourist_digital_ids WHERE tourist_id = ?", (tourist_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"No digital identity (DID) registered for tourist '{tourist_id}'")
+        res = dict(row)
+        return {
+            "data": {
+                "tourist_id": res["tourist_id"],
+                "did": res["did"],
+                "kyc_hash": res["kyc_hash"],
+                "issued_at": res["issued_at"],
+                "valid_until": res["valid_until"],
+                "is_active": bool(res["is_active"])
+            },
+            "message": "Tourist digital identity status verified"
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/identity/chain")
+def get_audit_trail_chain():
+    try:
+        import json
+        from identity.did_service import verify_chain
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM chain_blocks ORDER BY block_index ASC")
+        rows = cursor.fetchall()
+        conn.close()
+
+        blocks = []
+        for r in rows:
+            b = dict(r)
+            try:
+                data_parsed = json.loads(b["data"])
+            except Exception:
+                data_parsed = {"raw_data": b["data"]}
+            blocks.append({
+                "block_index": b["block_index"],
+                "timestamp": b["timestamp"],
+                "data": data_parsed,
+                "previous_hash": b["previous_hash"],
+                "hash": b["hash"]
+            })
+
+        is_valid, count, status_message = verify_chain()
+        return {
+            "data": blocks,
+            "message": f"Blockchain validation status: {status_message}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/identity/chain/verify")
+def verify_audit_blockchain():
+    try:
+        from identity.did_service import verify_chain
+        is_valid, count, status_message = verify_chain()
+        return {
+            "data": {
+                "is_valid": is_valid,
+                "blocks_count": count,
+                "verification_message": status_message
+            },
+            "message": "Audit blockchain verification check completed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
