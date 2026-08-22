@@ -1,0 +1,20 @@
+{
+    "model_version": "v1.0.0",
+    "training_date": "2026-08-22 06:26:29 UTC",
+    "model_type": "Isolation Forest (unsupervised)",
+    "features": [
+        "latitude",
+        "longitude",
+        "speed",
+        "distance_from_expected_route",
+        "time_of_day_sin",
+        "time_of_day_cos",
+        "dwell_time",
+        "frequency_of_location_changes",
+        "distance_from_nearest_safe",
+        "geofence_status"
+    ],
+    "training_data_source": "Synthetic Trajectories (Himachal Pradesh pilot region)",
+    "is_synthetic_disclosure": true,
+    "warning": "This model was trained entirely on synthetic movement trajectories simulating normal tourist hiking and walking behavior in Kullu/Manali. Anomaly detection thresholds and feature distributions must be calibrated with real historical field telemetry before production deployment."
+}

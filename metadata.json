@@ -1,0 +1,6 @@
+{
+  "name": "Suraksha Setu",
+  "description": "National Tourist Safety Command Centre with AI Anomaly Prediction, Live SOS GIS Tracking, Tourist Interception, Geofenced Alerts, and Audit Logging.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

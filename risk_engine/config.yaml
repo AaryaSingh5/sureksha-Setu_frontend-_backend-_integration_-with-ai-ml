@@ -1,0 +1,61 @@
+rules:
+  sos_triggered:
+    weight: 60
+    enabled: true
+    description: "Manual SOS or active panic beacon trigger detected."
+  critical_geofence:
+    weight: 30
+    enabled: true
+    description: "Entered restricted safety hazard/danger zone."
+  high_risk_zone:
+    weight: 20
+    enabled: true
+    description: "Currently in high-risk caution zone."
+  unusual_movement:
+    weight: 15
+    enabled: true
+    description: "Unusual speed or direction pattern detected."
+  late_night_context:
+    weight: 10
+    enabled: true
+    description: "Movement or activity after curfew hour in high-risk context."
+  prolonged_inactivity:
+    weight: 15
+    enabled: true
+    description: "No change in location or sensor heartbeat for a prolonged period."
+  signal_loss:
+    weight: 10
+    enabled: true
+    description: "Signal connectivity loss detected (missed scheduled status updates)."
+  route_deviation:
+    weight: 15
+    enabled: true
+    description: "Trekking route deviation threshold exceeded."
+
+ml_parameters:
+  weight: 10
+  anomaly_threshold: 0.60
+
+false_alarm_mitigation:
+  persistence_minutes: 5
+  curfew_hour_start: 22
+  curfew_hour_end: 5
+  late_night_multiplier: 1.5
+
+profiles:
+  trekker:
+    inactivity_tolerance_minutes: 30
+    route_deviation_tolerance_meters: 1000
+    risk_threshold_offset: -5
+  city_tourist:
+    inactivity_tolerance_minutes: 15
+    route_deviation_tolerance_meters: 200
+    risk_threshold_offset: 5
+  group:
+    inactivity_tolerance_minutes: 20
+    route_deviation_tolerance_meters: 400
+    risk_threshold_offset: 0
+  solo:
+    inactivity_tolerance_minutes: 10
+    route_deviation_tolerance_meters: 300
+    risk_threshold_offset: 10

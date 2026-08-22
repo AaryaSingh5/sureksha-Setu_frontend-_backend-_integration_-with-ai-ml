@@ -1,0 +1,27 @@
+==============================================================
+          TOURIST SAFETY ENGINE AUTOMATED TEST REPORT
+Generated at: 2026-08-22 11:59:01
+==============================================================
+
+--- SCENARIO 1: Normal Trek ---
+Result: PASS | Final Score: 0 | Band: LOW
+Trace details: {"rule_based": {"score": 0, "factors": []}, "regional_context": {"score": 0.0, "reason": "Inside safe zone: Manali Mall Road Safe Corridor"}, "ml_anomaly": {"score": 4.68, "raw_anomaly_score": 0.4678, "raw_decision_value": 0.0107}}
+
+--- SCENARIO 2: Restricted Zone Entry ---
+Result: PASS | Final Score: 67 | Band: HIGH
+Firing factors: ['critical_geofence']
+Trace details: {"rule_based": {"score": 30, "factors": [{"factor": "critical_geofence", "points": 30, "description": "Entered restricted safety hazard/danger zone."}]}, "regional_context": {"score": 37.5, "reason": "Inside restricted geofence: Solang Riverbank & Avalanche Slope; Near historical hotspot buffer: Solang Gorge Slip Danger Area (288m)"}, "ml_anomaly": {"score": 5.03, "raw_anomaly_score": 0.5027, "raw_decision_value": -0.0009}}
+
+--- SCENARIO 3: Prolonged Inactivity (Fall Simulation) ---
+At T+5m (Dwell 5m) - Score: 15 | Band: LOW (Expect LOW/MEDIUM - within tolerance)
+At T+20m (Dwell 20m) - Result: PASS | Final Score: 46 | Band: MEDIUM
+Firing factors: ['unusual_movement', 'prolonged_inactivity']
+
+--- SCENARIO 4: Signal Loss + Reconnect ---
+During Signal Loss: Score: 35 | Band: HIGH (Expect Warning/P3 Alert, not Critical)
+After Reconnect: Result: PASS | Final Score: 7 | Band: LOW
+
+--- SCENARIO 5: Benign Deviation (Shopping Detour) ---
+Result: PASS | Final Score: 24 | Band: MEDIUM
+Regional Risk detail: Inside safe zone: Manali Mall Road Safe Corridor
+==============================================================
