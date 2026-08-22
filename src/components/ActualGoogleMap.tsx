@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useAdvancedMarkerRef } from '@vis.gl/react-google-maps';
-import { MapPin, Navigation, Users, ShieldCheck, AlertTriangle, Layers, ExternalLink, ShieldAlert, Shield } from 'lucide-react';
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { MapPin, Navigation, Users, ShieldCheck, AlertTriangle, ExternalLink, ShieldAlert, Shield, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { GeoFenceZone } from '../types';
 
 export interface MapClusterMarker {
@@ -22,12 +22,12 @@ interface ActualGoogleMapProps {
   activeZoneId?: string;
   origin?: string;
   destination?: string;
+  searchQuery?: string;
   height?: string;
   onMarkerClick?: (marker: MapClusterMarker) => void;
   selectedMarkerId?: string;
   mapTypeControl?: boolean;
 }
-
 
 const API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
@@ -39,34 +39,45 @@ const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
 
 export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
   center = { lat: 32.2432, lng: 77.1892 }, // Manali default
-  zoom = 12,
+  zoom = 13,
   markers = [],
   geofenceZones = [],
   activeZoneId,
   origin,
   destination,
-  height = '320px',
+  searchQuery,
+  height = '460px',
   onMarkerClick,
   selectedMarkerId,
   mapTypeControl = true
 }) => {
-
   const [activeMarker, setActiveMarker] = useState<MapClusterMarker | null>(null);
   const [mapMode, setMapMode] = useState<'m' | 'k' | 'p'>('m'); // m: roadmap, k: satellite, p: terrain
+  const [currentZoom, setCurrentZoom] = useState<number>(zoom);
 
   const handleSelectMarker = (m: MapClusterMarker) => {
     setActiveMarker(m);
     if (onMarkerClick) onMarkerClick(m);
   };
 
+  const handleZoomIn = () => {
+    setCurrentZoom((prev) => Math.min(prev + 1, 19));
+  };
+
+  const handleZoomOut = () => {
+    setCurrentZoom((prev) => Math.max(prev - 1, 7));
+  };
+
+  const activeZone = geofenceZones.find((z) => z.id === activeZoneId);
+
   // If valid API key is supplied, use @vis.gl/react-google-maps
   if (hasValidKey) {
     return (
-      <div className="relative w-full rounded-2xl overflow-hidden border border-slate-300 shadow-sm" style={{ height }}>
+      <div className="relative w-full rounded-2xl overflow-hidden border border-slate-300 shadow-md transition-all" style={{ height }}>
         <APIProvider apiKey={API_KEY} version="weekly">
           <Map
             defaultCenter={center}
-            defaultZoom={zoom}
+            defaultZoom={currentZoom}
             mapId="DEMO_MAP_ID"
             internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
             style={{ width: '100%', height: '100%' }}
@@ -94,16 +105,52 @@ export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
     );
   }
 
-  // Fallback Google Map View using Google Maps embed query + custom crowd/route overlays
-  // Google Map embed URL with dynamic query / coordinates
-  const searchLocation = destination ? encodeURIComponent(destination) : `${center.lat},${center.lng}`;
-  const embedUrl = `https://maps.google.com/maps?q=${searchLocation}&t=${mapMode}&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+  // Dynamic Google Map embed URL construction
+  let embedUrl = '';
+  let externalUrl = '';
+  let activeTitle = 'Live Google Maps View';
+
+  if (origin && destination && origin.trim() !== '' && destination.trim() !== '') {
+    // Route directions mode
+    const saddr = encodeURIComponent(origin.trim());
+    const daddr = encodeURIComponent(destination.trim());
+    embedUrl = `https://maps.google.com/maps?saddr=${saddr}&daddr=${daddr}&t=${mapMode}&z=${currentZoom}&output=embed`;
+    externalUrl = `https://www.google.com/maps/dir/?api=1&origin=${saddr}&destination=${daddr}`;
+    activeTitle = `${origin} ➔ ${destination}`;
+  } else if (searchQuery && searchQuery.trim() !== '') {
+    // Single custom search query mode
+    const q = encodeURIComponent(searchQuery.trim());
+    embedUrl = `https://maps.google.com/maps?q=${q}&t=${mapMode}&z=${currentZoom}&ie=UTF8&iwloc=&output=embed`;
+    externalUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+    activeTitle = `Search: ${searchQuery}`;
+  } else if (destination && destination.trim() !== '') {
+    // Destination search mode
+    const q = encodeURIComponent(destination.trim());
+    embedUrl = `https://maps.google.com/maps?q=${q}&t=${mapMode}&z=${currentZoom}&ie=UTF8&iwloc=&output=embed`;
+    externalUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+    activeTitle = destination;
+  } else if (activeZone) {
+    // GeoFence Zone mode
+    const zoneQuery = encodeURIComponent(`${activeZone.name}, Himachal Pradesh`);
+    embedUrl = `https://maps.google.com/maps?q=${zoneQuery}&t=${mapMode}&z=${currentZoom}&ie=UTF8&iwloc=&output=embed`;
+    externalUrl = `https://www.google.com/maps/search/?api=1&query=${zoneQuery}`;
+    activeTitle = `GeoFence: ${activeZone.name}`;
+  } else {
+    // Center coordinates mode
+    const coords = `${center.lat},${center.lng}`;
+    embedUrl = `https://maps.google.com/maps?q=${coords}&t=${mapMode}&z=${currentZoom}&ie=UTF8&iwloc=&output=embed`;
+    externalUrl = `https://www.google.com/maps/search/?api=1&query=${coords}`;
+    activeTitle = `Coordinates: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+  }
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-900" style={{ height }}>
-      
+    <div
+      className="relative w-full rounded-2xl overflow-hidden border-2 border-slate-300 shadow-md bg-slate-900 transition-all"
+      style={{ height, minHeight: '380px' }}
+    >
       {/* Live Google Map Iframe Layer */}
       <iframe
+        key={embedUrl}
         title="Google Maps Location View"
         src={embedUrl}
         className="w-full h-full border-0 filter brightness-95 contrast-105"
@@ -112,45 +159,78 @@ export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
       />
 
       {/* Map Control Bar Top */}
-      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none gap-2">
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-md text-white text-xs font-bold">
-          <MapPin className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-          <span className="truncate max-w-[180px] sm:max-w-[280px]">
-            {destination ? `${origin || 'My Location'} ➔ ${destination}` : 'Live Google Maps View'}
+          <MapPin className="w-3.5 h-3.5 text-red-500 animate-pulse flex-shrink-0" />
+          <span className="truncate max-w-[160px] sm:max-w-[280px]">
+            {activeTitle}
           </span>
         </div>
 
-        {mapTypeControl && (
-          <div className="pointer-events-auto flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-700 shadow-md">
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          {/* Zoom Controls */}
+          <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-700 shadow-md gap-0.5">
             <button
-              onClick={() => setMapMode('m')}
-              className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
-                mapMode === 'm' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
-              }`}
+              onClick={handleZoomIn}
+              className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition"
+              title="Zoom In"
             >
-              Map
+              <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={() => setMapMode('k')}
-              className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
-                mapMode === 'k' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
-              }`}
+              onClick={handleZoomOut}
+              className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition"
+              title="Zoom Out"
             >
-              Satellite
-            </button>
-            <button
-              onClick={() => setMapMode('p')}
-              className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
-                mapMode === 'p' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Terrain
+              <ZoomOut className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
+
+          {/* Map Layer Mode Control */}
+          {mapTypeControl && (
+            <div className="hidden sm:flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-700 shadow-md">
+              <button
+                onClick={() => setMapMode('m')}
+                className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
+                  mapMode === 'm' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Map
+              </button>
+              <button
+                onClick={() => setMapMode('k')}
+                className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
+                  mapMode === 'k' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Satellite
+              </button>
+              <button
+                onClick={() => setMapMode('p')}
+                className={`px-2 py-1 text-[10px] font-black rounded-lg transition ${
+                  mapMode === 'p' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Terrain
+              </button>
+            </div>
+          )}
+
+          {/* External Google Maps Button */}
+          <a
+            href={externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-900 font-extrabold text-[11px] shadow border border-slate-300 transition"
+            title="Open in Google Maps"
+          >
+            <span className="hidden md:inline">Open in Maps</span>
+            <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+          </a>
+        </div>
       </div>
 
-      {/* Interactive People Clusters Floating Overlay on the Map */}
+      {/* Interactive People Clusters / Geo-Fence Floating Overlay on the Map */}
       {(markers.length > 0 || geofenceZones.length > 0) && (
         <div className="absolute bottom-3 left-3 right-3 z-10 pointer-events-auto flex gap-2 overflow-x-auto pb-1 max-w-full scrollbar-thin">
           {geofenceZones.map((z) => {
@@ -181,7 +261,6 @@ export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
           })}
 
           {markers.map((m) => {
-
             const isSelected = selectedMarkerId === m.id || activeMarker?.id === m.id;
             let badgeBg = 'bg-blue-600 border-blue-400 text-white';
             if (m.crowdLevel === 'extreme' || m.crowdLevel === 'high') {
@@ -216,18 +295,6 @@ export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
           })}
         </div>
       )}
-
-      {/* External Google Maps Button */}
-      <a
-        href={`https://www.google.com/maps/search/?api=1&query=${searchLocation}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute top-3 right-3 z-20 hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-900 font-extrabold text-[11px] shadow border border-slate-300 transition"
-      >
-        <span>Open Google Maps</span>
-        <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
-      </a>
-
     </div>
   );
 };

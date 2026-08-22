@@ -237,34 +237,8 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               ) : null}
 
-              {/* Utilities: Language, Theme & Logout */}
+              {/* Utilities: Theme & Logout */}
               <div className="flex items-center space-x-1.5 border-l border-slate-300 pl-2">
-                
-                {/* Language Switcher */}
-                <div className="flex items-center bg-slate-200/80 border border-slate-300 rounded-lg p-0.5 gap-0.5">
-                  <Globe className="w-3 h-3 text-slate-600 ml-1" />
-                  <button
-                    onClick={() => onLanguageChange('en')}
-                    className={`px-1.5 py-0.5 text-[10px] font-extrabold rounded ${
-                      language === 'en'
-                        ? 'bg-[#0C2340] text-white shadow-xs'
-                        : 'text-slate-700 hover:text-slate-900'
-                    }`}
-                  >
-                    EN
-                  </button>
-                  <button
-                    onClick={() => onLanguageChange('hi')}
-                    className={`px-1.5 py-0.5 text-[10px] font-extrabold rounded ${
-                      language === 'hi'
-                        ? 'bg-[#0C2340] text-white shadow-xs'
-                        : 'text-slate-700 hover:text-slate-900'
-                    }`}
-                  >
-                    हिंदी
-                  </button>
-                </div>
-
                 {/* Theme Toggle */}
                 <button
                   onClick={onToggleDarkMode}

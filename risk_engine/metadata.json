@@ -1,6 +1,6 @@
 {
     "model_version": "v1.0.0",
-    "training_date": "2026-08-22 06:26:29 UTC",
+    "training_date": "2026-08-22 08:16:54 UTC",
     "model_type": "Isolation Forest (unsupervised)",
     "features": [
         "latitude",
