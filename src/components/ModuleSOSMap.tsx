@@ -72,8 +72,8 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
         
         {/* Layer Toggles */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-extrabold text-[#0B2447] uppercase tracking-wider text-[11px] flex items-center gap-1">
-            <Layers className="w-4 h-4 text-[#FF9933]" />
+          <span className="font-extrabold text-[#1B2A4A] uppercase tracking-wider text-[11px] flex items-center gap-1">
+            <Layers className="w-4 h-4 text-[#E8935C]" />
             <span>{t.layersLabel}</span>
           </span>
 
@@ -105,11 +105,11 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
             onClick={() => setShowStationsLayer(!showStationsLayer)}
             className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
               showStationsLayer
-                ? 'bg-emerald-50 border-emerald-300 text-[#138808]'
+                ? 'bg-emerald-50 border-emerald-300 text-[#2F4538]'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
             }`}
           >
-            <Building2 className="w-3.5 h-3.5 text-[#138808]" />
+            <Building2 className="w-3.5 h-3.5 text-[#2F4538]" />
             <span>{t.layerStations}</span>
           </button>
 
@@ -146,12 +146,12 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
           <div className="flex items-center space-x-2">
-            <MapPin className="w-5 h-5 text-[#FF9933]" />
+            <MapPin className="w-5 h-5 text-[#E8935C]" />
             <h3 className="text-base font-bold text-slate-900">
               {t.gisMapTitle}
             </h3>
           </div>
-          <span className="text-xs font-mono text-[#138808] font-bold">
+          <span className="text-xs font-mono text-[#2F4538] font-bold">
             Grid IN-901 • Sat-Link: IRNSS NavIC Active
           </span>
         </div>
@@ -189,7 +189,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                   isSelected
                     ? 'bg-red-600 border-white scale-125 z-30'
                     : inc.status === 'Resolved'
-                    ? 'bg-[#138808] border-emerald-300 text-white'
+                    ? 'bg-[#2F4538] border-emerald-300 text-white'
                     : 'bg-red-600 border-amber-400 text-white group-hover:scale-110'
                 }`}>
                   <ShieldAlert className="w-5 h-5 text-white" />
@@ -215,7 +215,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 style={{ left: leftPct, top: topPct }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#0B2447] border-2 border-blue-400 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
+                <div className="w-8 h-8 rounded-lg bg-[#1B2A4A] border-2 border-blue-400 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
                   <Radio className="w-4 h-4 text-amber-300" />
                 </div>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-900 border border-slate-800 text-[10px] text-blue-300 px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
@@ -236,7 +236,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 style={{ left: leftPct, top: topPct }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
               >
-                <div className="w-9 h-9 rounded-lg bg-[#138808] border-2 border-emerald-200 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
+                <div className="w-9 h-9 rounded-lg bg-[#2F4538] border-2 border-emerald-200 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-900 border border-slate-800 text-[10px] text-emerald-300 px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
@@ -278,7 +278,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-5">
           <div className="flex items-center space-x-2">
-            <Radio className="w-5 h-5 text-[#FF9933]" />
+            <Radio className="w-5 h-5 text-[#E8935C]" />
             <h3 className="text-base font-bold text-slate-900">
               {t.kanbanTitle}
             </h3>
@@ -372,7 +372,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
                   <button
                     onClick={() => onResolveIncident(ticket.id)}
-                    className="w-full mt-2 py-1.5 bg-[#138808] hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow"
+                    className="w-full mt-2 py-1.5 bg-[#2F4538] hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow"
                   >
                     <Check className="w-4 h-4" />
                     <span>{t.markResolvedBtn}</span>
@@ -385,7 +385,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
           {/* COLUMN 3: RESOLVED & SAFE */}
           <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
-              <span className="font-extrabold text-xs uppercase text-[#138808] flex items-center gap-1.5">
+              <span className="font-extrabold text-xs uppercase text-[#2F4538] flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {t.kanbanResolved}
               </span>
@@ -402,12 +402,12 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
               resolvedTickets.map((ticket) => (
                 <div key={ticket.id} className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1 text-xs shadow-sm hover:border-slate-300 transition">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-[#138808]">{ticket.id}</span>
+                    <span className="font-mono font-bold text-[#2F4538]">{ticket.id}</span>
                     <span className="text-[10px] text-slate-500">{ticket.timestamp.split(' ')[1]}</span>
                   </div>
                   <div className="font-bold text-slate-900">{ticket.touristName}</div>
                   <div className="text-[11px] text-slate-600">{ticket.hazardType}</div>
-                  <div className="text-[10px] text-[#138808] font-bold mt-1">✓ Citizen Marked Safe</div>
+                  <div className="text-[10px] text-[#2F4538] font-bold mt-1">✓ Citizen Marked Safe</div>
                 </div>
               ))
             )}

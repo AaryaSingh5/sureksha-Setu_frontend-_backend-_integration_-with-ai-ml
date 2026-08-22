@@ -66,9 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       
       {/* Module Links */}
       <div className="space-y-1">
-        <div className="px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-[#0B2447] flex items-center justify-between">
+        <div className="px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-[#1B2A4A] flex items-center justify-between">
           <span>Command Modules</span>
-          <span className="w-2 h-2 rounded-full bg-[#138808]"></span>
+          <span className="w-2 h-2 rounded-full bg-[#2F4538]"></span>
         </div>
 
         {navItems.map((item) => {
@@ -81,12 +81,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectModule(item.id)}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all ${
                 isActive
-                  ? 'bg-[#0B2447] text-white shadow-md scale-[1.01]'
+                  ? 'bg-[#1B2A4A] text-white shadow-md scale-[1.01]'
                   : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               <div className="flex items-center space-x-3 truncate">
-                <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#FF9933]' : 'text-[#0B2447]'}`} />
+                <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#E8935C]' : 'text-[#1B2A4A]'}`} />
                 <span className="truncate">{item.label}</span>
               </div>
 
@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     item.badgeColor
                       ? item.badgeColor
                       : isActive
-                      ? 'bg-[#FF9933] text-slate-950'
+                      ? 'bg-[#E8935C] text-slate-950'
                       : 'bg-slate-100 text-slate-700 border border-slate-200'
                   }`}
                 >

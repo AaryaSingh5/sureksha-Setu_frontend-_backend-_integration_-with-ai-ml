@@ -264,7 +264,7 @@ export default function App() {
   const activeSosCount = incidents.filter((i) => i.status !== 'Resolved').length;
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#F4F6F9] text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#FAF7F2] text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
       
       {/* Command Header */}
       {userRole !== 'gateway' && (

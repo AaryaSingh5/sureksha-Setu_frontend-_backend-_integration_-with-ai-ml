@@ -70,7 +70,7 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
       {/* PERFORMANCE METRICS BAR */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center space-x-2 border-b border-slate-200 pb-3 mb-4">
-          <BarChart3 className="w-5 h-5 text-[#FF9933]" />
+          <BarChart3 className="w-5 h-5 text-[#E8935C]" />
           <h3 className="text-base font-bold text-slate-900">
             {t.performanceTitle}
           </h3>
@@ -80,19 +80,19 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
           
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-slate-500 text-xs font-bold uppercase">{t.avgResponseTime}</div>
-            <div className="text-2xl font-black text-[#138808] mt-1 font-mono">4.2 min</div>
-            <div className="text-[11px] text-[#138808] font-bold mt-0.5">↓ 18% improvement vs Q2</div>
+            <div className="text-2xl font-black text-[#2F4538] mt-1 font-mono">4.2 min</div>
+            <div className="text-[11px] text-[#2F4538] font-bold mt-0.5">↓ 18% improvement vs Q2</div>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-slate-500 text-xs font-bold uppercase">{t.resolutionRate}</div>
-            <div className="text-2xl font-black text-[#0B2447] mt-1 font-mono">96.4%</div>
+            <div className="text-2xl font-black text-[#1B2A4A] mt-1 font-mono">96.4%</div>
             <div className="text-[11px] text-blue-700 font-bold mt-0.5">342 incidents resolved</div>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-slate-500 text-xs font-bold uppercase">Statutory Compliance</div>
-            <div className="text-2xl font-black text-[#FF9933] mt-1 font-mono">100% Audit</div>
+            <div className="text-2xl font-black text-[#E8935C] mt-1 font-mono">100% Audit</div>
             <div className="text-[11px] text-slate-600 font-medium mt-0.5">0 unverified search breaches</div>
           </div>
 
@@ -117,30 +117,30 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
               <div>
                 <div className="flex justify-between text-slate-700 mb-1 font-medium">
                   <span>1. Solang Trekking Trail, Kullu (HP)</span>
-                  <span className="font-mono text-[#0B2447] font-bold">42 incidents</span>
+                  <span className="font-mono text-[#1B2A4A] font-bold">42 incidents</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div className="h-full bg-[#FF9933] w-[84%]"></div>
+                  <div className="h-full bg-[#E8935C] w-[84%]"></div>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between text-slate-700 mb-1 font-medium">
                   <span>2. Dashashwamedh Ghat Alleys, Varanasi (UP)</span>
-                  <span className="font-mono text-[#0B2447] font-bold">28 incidents</span>
+                  <span className="font-mono text-[#1B2A4A] font-bold">28 incidents</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div className="h-full bg-[#FF9933] w-[56%]"></div>
+                  <div className="h-full bg-[#E8935C] w-[56%]"></div>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between text-slate-700 mb-1 font-medium">
                   <span>3. Canacona Tidal Cliffs, Goa</span>
-                  <span className="font-mono text-[#0B2447] font-bold">19 incidents</span>
+                  <span className="font-mono text-[#1B2A4A] font-bold">19 incidents</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div className="h-full bg-[#FF9933] w-[38%]"></div>
+                  <div className="h-full bg-[#E8935C] w-[38%]"></div>
                 </div>
               </div>
             </div>
@@ -159,7 +159,7 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
                   <div key={m} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
                     <div
                       style={{ height: `${heightPct}%` }}
-                      className="w-full bg-gradient-to-t from-[#0B2447] to-[#FF9933] rounded-t hover:brightness-110 transition shadow-sm"
+                      className="w-full bg-gradient-to-t from-[#1B2A4A] to-[#E8935C] rounded-t hover:brightness-110 transition shadow-sm"
                     ></div>
                     <span className="text-[10px] text-slate-600 font-bold">{m}</span>
                   </div>
@@ -177,7 +177,7 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-[#138808]" />
+              <ShieldCheck className="w-5 h-5 text-[#2F4538]" />
               <span>{t.auditLogsTitle}</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium">{t.auditLogsDesc}</p>
@@ -187,7 +187,7 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
             onClick={exportCsv}
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
           >
-            <Download className="w-4 h-4 text-[#FF9933]" />
+            <Download className="w-4 h-4 text-[#E8935C]" />
             <span>{t.exportCsvBtn}</span>
           </button>
         </div>
@@ -200,7 +200,7 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Search by Officer, Target ID, Reason, or Details..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#FF9933] focus:bg-white"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#E8935C] focus:bg-white"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           </div>
@@ -254,8 +254,8 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
                         {log.actionType}
                       </span>
                     </td>
-                    <td className="p-3 text-[#0B2447] font-bold">{log.targetId}</td>
-                    <td className="p-3 text-[#138808] font-bold">{log.reason || 'N/A'}</td>
+                    <td className="p-3 text-[#1B2A4A] font-bold">{log.targetId}</td>
+                    <td className="p-3 text-[#2F4538] font-bold">{log.reason || 'N/A'}</td>
                     <td className="p-3 text-slate-700 max-w-xs truncate font-sans font-medium">{log.details}</td>
                     <td className="p-3 text-slate-400 text-[10px]">{log.ipAddress}</td>
                   </tr>

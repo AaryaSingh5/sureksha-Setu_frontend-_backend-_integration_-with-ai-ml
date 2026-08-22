@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
       icon: Brain,
       titleEn: 'AI Anomaly & Prediction Hub',
       badge: 'AI ACTIVE',
-      badgeStyle: 'bg-amber-500/20 text-[#FF9933] border-amber-500/40'
+      badgeStyle: 'bg-amber-500/20 text-[#E8935C] border-amber-500/40'
     },
     {
       id: 'tourist_tracking' as ActiveModule,
@@ -87,14 +87,10 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0C2340] text-white shadow-xl border-b border-slate-800">
+    <header className="sticky top-0 z-50 bg-[#1B2A4A] text-white border-b border-[#7C93A8]/20 shadow-sm">
       
-      {/* Tricolor Top Bar Accent */}
-      <div className="h-1 w-full flex">
-        <div className="h-full w-1/3 bg-[#FF9933]"></div>
-        <div className="h-full w-1/3 bg-white"></div>
-        <div className="h-full w-1/3 bg-[#138808]"></div>
-      </div>
+      {/* Dawn Amber Top Bar Accent */}
+      <div className="h-[2px] w-full bg-[#E8935C]"></div>
 
       {/* ROW 1: DARK NAVY BAR WITH BRAND & HORIZONTAL NAV TABS */}
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-2">
@@ -106,15 +102,15 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => userRole === 'authority' && onSelectModule('ai_hub')}
           >
             {/* Round White Wheel Emblem */}
-            <div className="w-9 h-9 rounded-full bg-white text-[#0C2340] flex items-center justify-center font-bold shadow-sm border border-slate-200 group-hover:scale-105 transition-transform">
-              <Compass className="w-5 h-5 text-[#0C2340]" />
+            <div className="w-9 h-9 rounded-full bg-white text-[#1B2A4A] flex items-center justify-center font-bold shadow-sm border border-slate-200 group-hover:scale-105 transition-transform">
+              <Compass className="w-5 h-5 text-[#1B2A4A]" />
             </div>
 
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-black tracking-wider text-white uppercase whitespace-nowrap">
                 SURAKSHA SETU
               </span>
-              <span className="text-[10px] font-bold text-[#FF9933] whitespace-nowrap">
+              <span className="text-[10px] font-bold text-[#E8935C] whitespace-nowrap">
                 सुरक्षा सेतु • National Portal
               </span>
             </div>
@@ -131,15 +127,15 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onSelectModule(item.id)}
-                    className={`flex items-center space-x-2.5 px-3.5 py-2 rounded-xl text-left transition-all flex-shrink-0 cursor-pointer ${
+                    className={`flex items-center space-x-2.5 px-3.5 py-2 rounded text-left transition-all flex-shrink-0 cursor-pointer ${
                       isActive
-                        ? 'bg-[#153462] border border-[#234F8C] shadow-md ring-1 ring-[#FF9933]/40'
+                        ? 'bg-white/10 border border-[#7C93A8]/45 shadow-sm'
                         : 'bg-transparent hover:bg-white/5 text-slate-300 hover:text-white border border-transparent'
                     }`}
                   >
                     <Icon
                       className={`w-4 h-4 flex-shrink-0 ${
-                        isActive ? 'text-[#FF9933]' : 'text-slate-300'
+                        isActive ? 'text-[#E8935C]' : 'text-slate-300'
                       }`}
                     />
                     <span
@@ -167,16 +163,16 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* ROW 2: LIGHT SUB-BAR WITH PAGE TITLE, SEARCH & OFFICER PROFILE */}
-      <div className="bg-[#F8FAFC] text-slate-900 border-t border-slate-700/50 border-b border-slate-200 py-2.5">
+      <div className="bg-[#FAF7F2] text-[#1B2A4A] border-t border-[#7C93A8]/15 border-b border-[#7C93A8]/25 py-2.5">
         <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
             
             {/* Title & Subtitle */}
             <div className="flex flex-col">
-              <h1 className="text-lg sm:text-xl font-black text-[#0C2340] tracking-tight whitespace-nowrap uppercase">
+              <h1 className="text-lg sm:text-xl font-black text-[#1B2A4A] tracking-tight whitespace-nowrap uppercase">
                 {t.nationalPortalName}
               </h1>
-              <p className="text-xs text-slate-600 font-semibold mt-0.5 whitespace-nowrap">
+              <p className="text-xs text-[#7C93A8] font-semibold mt-0.5 whitespace-nowrap">
                 {t.nationalPortalName} • {language === 'hi' ? 'हिमाचल प्रदेश राज्य' : 'Himachal Pradesh State'}
               </p>
             </div>
@@ -193,13 +189,13 @@ export const Header: React.FC<HeaderProps> = ({
                     value={globalSearchQuery}
                     onChange={(e) => onGlobalSearchChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && onExecuteGlobalSearch()}
-                    className="w-full md:w-72 lg:w-80 pl-9 pr-8 py-1.5 text-xs rounded-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#0C2340] focus:ring-1 focus:ring-[#0C2340] shadow-sm font-medium transition-all"
+                    className="w-full md:w-72 lg:w-80 pl-9 pr-8 py-1.5 text-xs rounded-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#1B2A4A] focus:ring-1 focus:ring-[#1B2A4A] shadow-sm font-medium transition-all"
                   />
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                   {globalSearchQuery && (
                     <button
                       onClick={onExecuteGlobalSearch}
-                      className="absolute right-2 top-1.5 px-2 py-0.5 bg-[#0C2340] text-white text-[10px] font-bold rounded-full hover:bg-slate-800"
+                      className="absolute right-2 top-1.5 px-2 py-0.5 bg-[#1B2A4A] text-white text-[10px] font-bold rounded-full hover:bg-slate-800"
                     >
                       GO
                     </button>
@@ -227,7 +223,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-8 h-8 rounded-full border border-slate-300 object-cover shadow-xs flex-shrink-0"
                   />
                   <div className="flex flex-col leading-tight">
-                    <span className="text-xs font-extrabold text-[#0C2340] whitespace-nowrap">
+                    <span className="text-xs font-extrabold text-[#1B2A4A] whitespace-nowrap">
                       Rajesh Kumar, IAS
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">

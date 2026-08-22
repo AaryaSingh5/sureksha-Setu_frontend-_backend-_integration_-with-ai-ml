@@ -65,7 +65,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
       {toastNotice && (
         <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold rounded-2xl flex items-center justify-between shadow-md animate-bounce">
           <span>{toastNotice}</span>
-          <span className="font-mono text-[10px] text-[#138808] font-bold">NIC Geofence Gateway v4</span>
+          <span className="font-mono text-[10px] text-[#2F4538] font-bold">NIC Geofence Gateway v4</span>
         </div>
       )}
 
@@ -76,7 +76,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
           
           <div className="flex items-center space-x-2 border-b border-slate-200 pb-3">
-            <Radio className="w-5 h-5 text-[#FF9933]" />
+            <Radio className="w-5 h-5 text-[#E8935C]" />
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 {t.broadcastTitle}
@@ -96,7 +96,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                 <select
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#FF9933] focus:bg-white"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#E8935C] focus:bg-white"
                 >
                   <option value="Himachal Pradesh (Solang Valley & Rohtang Sector)">Himachal Pradesh (Solang / Rohtang)</option>
                   <option value="Varanasi Ghats Heritage Area (UP)">Varanasi Ghats Heritage Corridor</option>
@@ -109,7 +109,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
               <div>
                 <div className="flex justify-between font-bold text-slate-700 mb-1">
                   <span>{t.radiusKm}</span>
-                  <span className="text-[#0B2447] font-mono font-extrabold">{radiusKm} km</span>
+                  <span className="text-[#1B2A4A] font-mono font-extrabold">{radiusKm} km</span>
                 </div>
                 <input
                   type="range"
@@ -117,7 +117,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                   max="25"
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="w-full accent-[#FF9933] cursor-pointer"
+                  className="w-full accent-[#E8935C] cursor-pointer"
                 />
               </div>
             </div>
@@ -138,8 +138,8 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                         ? sev === 'Critical'
                           ? 'bg-red-600 text-white border-red-700 shadow-sm'
                           : sev === 'Warning'
-                          ? 'bg-[#FF9933] text-slate-950 border-amber-500 shadow-sm'
-                          : 'bg-[#0B2447] text-white border-slate-800 shadow-sm'
+                          ? 'bg-[#E8935C] text-slate-950 border-amber-500 shadow-sm'
+                          : 'bg-[#1B2A4A] text-white border-slate-800 shadow-sm'
                         : 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -157,7 +157,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                   type="text"
                   value={titleEn}
                   onChange={(e) => setTitleEn(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#FF9933] focus:bg-white"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#E8935C] focus:bg-white"
                 />
               </div>
               <div>
@@ -166,7 +166,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                   rows={2}
                   value={bodyEn}
                   onChange={(e) => setBodyEn(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#FF9933] focus:bg-white"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-[#E8935C] focus:bg-white"
                 />
               </div>
             </div>
@@ -175,9 +175,9 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
             <div className="pt-3">
               <button
                 type="submit"
-                className="w-full py-3 bg-[#0B2447] hover:bg-[#071933] text-white font-black rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[#1B2A4A] hover:bg-[#071933] text-white font-black rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2"
               >
-                <Send className="w-4 h-4 text-[#FF9933]" />
+                <Send className="w-4 h-4 text-[#E8935C]" />
                 <span>{t.sendBroadcastBtn}</span>
               </button>
             </div>
@@ -191,7 +191,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
           
           {/* Audience Counter Box */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-amber-50 border border-[#FF9933] mx-auto flex items-center justify-center text-[#FF9933]">
+            <div className="w-12 h-12 rounded-full bg-amber-50 border border-[#E8935C] mx-auto flex items-center justify-center text-[#E8935C]">
               <Users className="w-6 h-6" />
             </div>
 
@@ -199,7 +199,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
               {t.estimatedRecipients}
             </div>
 
-            <div className="text-4xl font-black text-[#0B2447] font-mono">
+            <div className="text-4xl font-black text-[#1B2A4A] font-mono">
               ~{estimatedRecipients.toLocaleString()}
             </div>
 
@@ -238,7 +238,7 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
             <tbody className="divide-y divide-slate-100">
               {broadcasts.map((b) => (
                 <tr key={b.id} className="hover:bg-slate-50 transition">
-                  <td className="p-3 font-mono font-bold text-[#0B2447]">{b.id}</td>
+                  <td className="p-3 font-mono font-bold text-[#1B2A4A]">{b.id}</td>
                   <td className="p-3 font-medium">{b.region} ({b.radiusKm} km)</td>
                   <td className="p-3 font-extrabold text-slate-900">{b.titleEn}</td>
                   <td className="p-3">
@@ -248,8 +248,8 @@ export const ModuleBroadcast: React.FC<ModuleBroadcastProps> = ({
                       {b.severity}
                     </span>
                   </td>
-                  <td className="p-3 font-mono text-[#138808] font-bold">{b.deliveredCount.toLocaleString()} / {b.recipientCount.toLocaleString()}</td>
-                  <td className="p-3 font-extrabold text-[#138808]">✓ {b.status}</td>
+                  <td className="p-3 font-mono text-[#2F4538] font-bold">{b.deliveredCount.toLocaleString()} / {b.recipientCount.toLocaleString()}</td>
+                  <td className="p-3 font-extrabold text-[#2F4538]">✓ {b.status}</td>
                 </tr>
               ))}
             </tbody>
