@@ -8,7 +8,7 @@ import responderRoutes from './routes/responders';
 import aiAndBroadcastRoutes from './routes/aiAndBroadcasts';
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8080;
 
 // Enable CORS and JSON parsing
 app.use(cors());

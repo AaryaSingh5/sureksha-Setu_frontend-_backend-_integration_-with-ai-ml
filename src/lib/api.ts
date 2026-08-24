@@ -14,7 +14,7 @@ import {
 let isSyncing = false;
 
 export function getApiBaseUrl(): string {
-  return localStorage.getItem("sos_api_base_url") || "http://localhost:8000/api/v1";
+  return localStorage.getItem("sos_api_base_url") || "http://localhost:8080/api/v1";
 }
 
 export function getAuthToken(): string {

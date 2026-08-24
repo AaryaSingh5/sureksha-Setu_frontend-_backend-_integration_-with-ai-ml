@@ -730,7 +730,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[#FAF7F2] text-slate-900 p-3 sm:p-5 w-full max-w-none flex flex-col justify-between relative pb-24">
+    <div className="min-h-[calc(100vh-80px)] bg-slate-50 text-slate-900 p-3 sm:p-5 w-full max-w-none flex flex-col justify-between relative pb-24">
       
       {/* GLOBAL TOP HEADER FOR TOURIST PORTAL */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">

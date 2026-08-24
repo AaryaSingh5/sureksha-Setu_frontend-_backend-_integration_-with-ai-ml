@@ -6,7 +6,7 @@
   "scripts": {
     "server": "tsx server/index.ts",
     "client": "vite --port=3000 --host=0.0.0.0",
-    "risk-engine": "cd risk_engine && .\\venv\\Scripts\\python.exe -m uvicorn main:app --port 8001 --host 127.0.0.1",
+    "risk-engine": "cd risk_engine && (test -d venv || /usr/bin/python3 -m venv venv) && ./venv/bin/python -m pip install -r requirements.txt && ./venv/bin/python -m uvicorn main:app --port 8001 --host 127.0.0.1",
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT,RISK\" -c \"cyan,yellow,green\" \"npm run server\" \"npm run client\" \"npm run risk-engine\"",
     "build": "vite build",
     "preview": "vite preview",
