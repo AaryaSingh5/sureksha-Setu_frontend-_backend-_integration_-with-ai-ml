@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import {
   UserSearch,
   Search,
-  UserCheck,
   ShieldCheck,
-  ShieldAlert,
   Phone,
   Mail,
   PhoneCall,
@@ -16,15 +14,13 @@ import {
   FileText,
   User,
   Globe,
-  Award,
-  Key,
   BadgeCheck,
-  Calendar,
-  Lock
+  Calendar
 } from 'lucide-react';
 import { Language, TouristProfile, InterceptionReason } from '../types';
 import { i18n } from '../data/i18n';
 import { InterceptionModal } from './InterceptionModal';
+import { issueDigitalIdAPI } from '../lib/api';
 
 interface ModuleTouristTrackingProps {
   language: Language;
@@ -80,6 +76,46 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
   const [pendingTouristId, setPendingTouristId] = useState<string | null>(null);
   const [showInterceptionModal, setShowInterceptionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [isIssuingDid, setIsIssuingDid] = useState(false);
+  const [issuedDidSuccess, setIssuedDidSuccess] = useState<string | null>(null);
+
+  const handleIssueDid = async (tourist: TouristProfile) => {
+    setIsIssuingDid(true);
+    setIssuedDidSuccess(null);
+    try {
+      const touristId = tourist.tourist_id || tourist.id;
+      const record = await issueDigitalIdAPI(
+        touristId,
+        'sha256-kyc-hash-' + touristId,
+        new Date(Date.now() + 31536000000).toISOString()
+      );
+
+      setIssuedDidSuccess(record.did);
+      setSelectedTourist((prev) =>
+        prev
+          ? {
+              ...prev,
+              digital_id: record.did,
+              kyc_verified: true
+            }
+          : prev
+      );
+
+      onLogAudit(
+        'TICKET_STATUS_CHANGE',
+        tourist.id,
+        'DID Issued',
+        `Generated Decentralized ID ${record.did} and anchored to blockchain audit ledger`
+      );
+      setToastMessage(`✓ Digital ID issued and anchored: ${record.did}`);
+    } catch (err: any) {
+      console.error('Failed to issue Digital ID:', err);
+      setToastMessage(`⚠️ Failed to issue Digital ID: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setIsIssuingDid(false);
+      setTimeout(() => setToastMessage(''), 5000);
+    }
+  };
 
   const triggerSearch = (idToSearch: string) => {
     if (!idToSearch.trim()) return;
@@ -96,6 +132,7 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
 
     if (found) {
       setSelectedTourist(found);
+      setIssuedDidSuccess(found.digital_id?.startsWith('did:sih:') ? found.digital_id : null);
       onLogAudit(
         'TOURIST_LOOKUP',
         found.id + ' (' + found.name + ')',
@@ -422,11 +459,29 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
                         </div>
 
                         <div className="flex justify-between items-center py-1 border-t border-slate-100">
-                          <span className="text-slate-500 font-medium">Security Status</span>
-                          <span className="font-semibold text-slate-700 flex items-center gap-1">
-                            <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Identity Authenticated</span>
-                          </span>
+                          <span className="text-slate-500 font-medium">Decentralized ID (DID)</span>
+                          {issuedDidSuccess || digitalId.startsWith('did:sih:') ? (
+                            <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 truncate max-w-[140px]" title={issuedDidSuccess || digitalId}>
+                              {issuedDidSuccess || digitalId}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">Not issued yet</span>
+                          )}
+                        </div>
+
+                        {/* Issue DID Button */}
+                        <div className="pt-2 border-t border-slate-100 flex justify-end">
+                          <button
+                            onClick={() => handleIssueDid(selectedTourist)}
+                            disabled={isIssuingDid || Boolean(issuedDidSuccess) || digitalId.startsWith('did:sih:')}
+                            className="w-full py-2 bg-gradient-to-r from-[#0B2447] to-[#143d73] hover:from-[#FF9933] hover:to-[#FF9933]/90 hover:text-[#0B2447] text-white disabled:opacity-60 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 font-extrabold rounded-lg text-xs transition duration-200 shadow-sm"
+                          >
+                            {issuedDidSuccess || digitalId.startsWith('did:sih:')
+                              ? 'Digital ID Anchored'
+                              : isIssuingDid
+                              ? 'Generating DID...'
+                              : 'Issue Secure Digital ID'}
+                          </button>
                         </div>
 
                       </div>
