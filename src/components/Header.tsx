@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-50 bg-[#0C2340] text-white shadow-xl border-b border-slate-800">
-      
+
       {/* Tricolor Top Bar Accent */}
       <div className="h-1 w-full flex">
         <div className="h-full w-1/3 bg-[#FF9933]"></div>
@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* ROW 1: DARK NAVY BAR WITH BRAND & HORIZONTAL NAV TABS */}
       <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-2">
         <div className="flex flex-col xl:flex-row items-center justify-between gap-3">
-          
+
           {/* Brand Logo & Emblem */}
           <div
             className="flex items-center space-x-3 cursor-pointer group flex-shrink-0"
@@ -131,21 +131,18 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onSelectModule(item.id)}
-                    className={`flex items-center space-x-2.5 px-3.5 py-2 rounded-xl text-left transition-all flex-shrink-0 cursor-pointer ${
-                      isActive
+                    className={`flex items-center space-x-2.5 px-3.5 py-2 rounded-xl text-left transition-all flex-shrink-0 cursor-pointer ${isActive
                         ? 'bg-[#153462] border border-[#234F8C] shadow-md ring-1 ring-[#FF9933]/40'
                         : 'bg-transparent hover:bg-white/5 text-slate-300 hover:text-white border border-transparent'
-                    }`}
+                      }`}
                   >
                     <Icon
-                      className={`w-4 h-4 flex-shrink-0 ${
-                        isActive ? 'text-[#FF9933]' : 'text-slate-300'
-                      }`}
+                      className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#FF9933]' : 'text-slate-300'
+                        }`}
                     />
                     <span
-                      className={`text-xs whitespace-nowrap font-bold ${
-                        isActive ? 'text-white' : 'text-slate-200'
-                      }`}
+                      className={`text-xs whitespace-nowrap font-bold ${isActive ? 'text-white' : 'text-slate-200'
+                        }`}
                     >
                       {item.titleEn}
                     </span>
@@ -170,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="bg-[#F8FAFC] text-slate-900 border-t border-slate-700/50 border-b border-slate-200 py-2.5">
         <div className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            
+
             {/* Title & Subtitle */}
             <div className="flex flex-col">
               <h1 className="text-lg sm:text-xl font-black text-[#0C2340] tracking-tight whitespace-nowrap uppercase">
@@ -183,7 +180,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Right Controls: Search, Profile & Action Utilities */}
             <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
-              
+
               {/* Search Box */}
               {userRole === 'authority' && (
                 <div className="relative flex-1 md:flex-initial">

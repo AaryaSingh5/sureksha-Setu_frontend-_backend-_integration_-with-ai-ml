@@ -6,7 +6,7 @@
   "scripts": {
     "server": "tsx server/index.ts",
     "client": "vite --port=3000 --host=0.0.0.0",
-    "risk-engine": "cd risk_engine && .\\venv\\Scripts\\python.exe -m uvicorn main:app --port 8001 --host 127.0.0.1",
+    "risk-engine": "cd risk_engine && python -m uvicorn main:app --port 8001 --host 127.0.0.1",
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT,RISK\" -c \"cyan,yellow,green\" \"npm run server\" \"npm run client\" \"npm run risk-engine\"",
     "build": "vite build",
     "cap:sync": "npm run build && npx cap sync android",
@@ -40,6 +40,8 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",

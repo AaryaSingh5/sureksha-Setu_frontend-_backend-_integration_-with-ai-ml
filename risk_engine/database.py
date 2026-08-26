@@ -56,6 +56,31 @@ def init_db():
         )
     """)
 
+    # Create tourist_digital_ids table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tourist_digital_ids (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tourist_id TEXT UNIQUE NOT NULL,
+            did TEXT UNIQUE NOT NULL,
+            kyc_hash TEXT NOT NULL,
+            issued_at TEXT NOT NULL,
+            valid_until TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1
+        )
+    """)
+
+    # Create chain_blocks table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chain_blocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            block_index INTEGER UNIQUE NOT NULL,
+            timestamp TEXT NOT NULL,
+            data TEXT NOT NULL,
+            previous_hash TEXT NOT NULL,
+            hash TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 

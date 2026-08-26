@@ -24,7 +24,7 @@
 import http from 'http';
 import readline from 'readline';
 
-const BACKEND_URL = 'http://localhost:8000/api/v1/sos';
+const BACKEND_URL = 'http://localhost:8080/api/v1/sos';
 const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 const BLE_CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 

@@ -156,7 +156,7 @@ export default function App() {
     };
 
     setIncidents((prev) => [newIncident, ...prev]);
-    
+
     // Update tourist safety status
     setTourists((prev) =>
       prev.map((t) =>
@@ -271,29 +271,32 @@ export default function App() {
   const activeSosCount = (incidents || []).filter((i) => i && i.status !== 'Resolved').length;
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#F4F6F9] text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
-      
+    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
+
       {/* Command Header */}
-      <Header
-        language={language}
-        onLanguageChange={setLanguage}
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
-        userRole={userRole}
-        onLogout={() => setUserRole('gateway')}
-        activeModule={activeModule}
-        onSelectModule={setActiveModule}
-        globalSearchQuery={globalSearchQuery}
-        onGlobalSearchChange={setGlobalSearchQuery}
-        onExecuteGlobalSearch={handleExecuteGlobalSearch}
-        activeSosCount={activeSosCount}
-      />
+      {userRole !== 'gateway' && (
+        <Header
+          language={language}
+          onLanguageChange={setLanguage}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          userRole={userRole}
+          onLogout={() => setUserRole('gateway')}
+          activeModule={activeModule}
+          onSelectModule={setActiveModule}
+          globalSearchQuery={globalSearchQuery}
+          onGlobalSearchChange={setGlobalSearchQuery}
+          onExecuteGlobalSearch={handleExecuteGlobalSearch}
+          activeSosCount={activeSosCount}
+        />
+      )}
 
       {/* Main Content Area */}
       {userRole === 'gateway' ? (
         <ErrorBoundary componentName="Public Gateway Screen">
           <Gateway
             language={language}
+            onLanguageChange={setLanguage}
             onSelectRole={(role) => setUserRole(role)}
             onAuthenticateAuthority={handleAuthenticateAuthority}
           />
@@ -314,7 +317,7 @@ export default function App() {
         </ErrorBoundary>
       ) : (
         <div className="flex-1 flex flex-col max-w-[1700px] w-full mx-auto">
-          
+
           {/* Module Screen Content */}
           <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
             {activeModule === 'ai_hub' && (

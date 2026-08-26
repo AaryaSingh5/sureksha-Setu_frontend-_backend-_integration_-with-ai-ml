@@ -46,7 +46,6 @@ import {
   RotateCcw,
   Sparkles,
   Bluetooth,
-  Radio
 } from 'lucide-react';
 import { Language, TouristProfile, ItineraryItem, ChatMessage, BroadcastAlert, GeoFenceZone, SosStepState } from '../types';
 import { i18n } from '../data/i18n';
@@ -55,7 +54,13 @@ import { ActualGoogleMap } from './ActualGoogleMap';
 import { CrowdHeatmap } from './CrowdHeatmap';
 import { getSOSLocation, getLiveLocation } from '../lib/location';
 import { queueSOSRecord, saveLastKnownLocation } from '../lib/db';
-import { submitSOSOnline, syncQueuedSOS, sendLocationPingAPI } from '../lib/api';
+import {
+  submitSOSOnline,
+  syncQueuedSOS,
+  sendLocationPingAPI,
+  fetchLiveGeofencesAPI,
+  type LiveGeofenceZoneRaw
+} from '../lib/api';
 import {
   globalSOSRouter,
   initBluetoothMeshListener,
@@ -200,6 +205,84 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
   // Integrated Geo-Fence States
   const [activeGeoFenceZone, setActiveGeoFenceZone] = useState<GeoFenceZone>(MOCK_GEOFENCE_ZONES[0]); // Solang Valley (Unsafe)
+
+  // Live geofence zones, fetched from risk_engine (GET /offline/geofences).
+  // Falls back to MOCK_GEOFENCE_ZONES if the risk engine isn't reachable
+  // (e.g. Python service not running yet), so the map never breaks.
+  const [geoFenceZones, setGeoFenceZones] = useState<GeoFenceZone[]>(MOCK_GEOFENCE_ZONES);
+  const [usingLiveGeofences, setUsingLiveGeofences] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const tierToRiskLevel = (tier: string): GeoFenceZone['riskLevel'] => {
+      if (tier === 'restricted') return 'Unsafe';
+      if (tier === 'caution') return 'Caution';
+      return 'Safe';
+    };
+
+    // Approximate a polygon's center + a covering radius from its ring of
+    // [lat, lon] points, since the existing map component renders zones as
+    // center+radius circles rather than polygons.
+    const polygonToCenterRadius = (polygon: [number, number][]) => {
+      const lats = polygon.map((p) => p[0]);
+      const lons = polygon.map((p) => p[1]);
+      const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+      const centerLng = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+      // Rough meters-per-degree at this latitude, converted to km, then
+      // find the furthest corner from the center to size the covering circle.
+      const kmPerDegLat = 111.32;
+      const kmPerDegLng = 111.32 * Math.cos((centerLat * Math.PI) / 180);
+      let maxDistKm = 0;
+      for (const [lat, lon] of polygon) {
+        const dLat = (lat - centerLat) * kmPerDegLat;
+        const dLng = (lon - centerLng) * kmPerDegLng;
+        const distKm = Math.sqrt(dLat * dLat + dLng * dLng);
+        if (distKm > maxDistKm) maxDistKm = distKm;
+      }
+
+      return { lat: centerLat, lng: centerLng, radiusKm: Math.max(maxDistKm, 0.2) };
+    };
+
+    (async () => {
+      try {
+        const live = await fetchLiveGeofencesAPI();
+        const allZones: LiveGeofenceZoneRaw[] = [
+          ...live.restricted_zones,
+          ...live.caution_zones,
+          ...live.safe_zones
+        ];
+
+        const converted: GeoFenceZone[] = allZones.map((z) => {
+          const { lat, lng, radiusKm } = polygonToCenterRadius(z.polygon);
+          return {
+            id: z.id,
+            name: z.name,
+            riskLevel: tierToRiskLevel(z.tier),
+            description: z.description,
+            center: { lat, lng },
+            radiusKm
+          };
+        });
+
+        if (!cancelled && converted.length > 0) {
+          setGeoFenceZones(converted);
+          setUsingLiveGeofences(true);
+          setActiveGeoFenceZone((prev) => converted.find((z) => z.name === prev.name) || converted[0]);
+        }
+      } catch (err) {
+        // Risk engine not reachable — silently keep the mock data fallback
+        // already set as the initial state, so the map stays usable.
+        console.warn('[Geofence] Could not reach live risk engine, using mock geofence data.', err);
+        setUsingLiveGeofences(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleStartSosConfirmation = () => {
     setSosStep('confirming');
@@ -539,36 +622,36 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
           const updatedUser: TouristProfile = authenticatedUser
             ? {
-                ...authenticatedUser,
-                locationConsent: 'granted',
-                currentLocation: {
-                  lat: userLat,
-                  lng: userLng,
-                  address: liveAddr
-                }
+              ...authenticatedUser,
+              locationConsent: 'granted',
+              currentLocation: {
+                lat: userLat,
+                lng: userLng,
+                address: liveAddr
               }
+            }
             : {
-                id: 'TR-88219',
-                name: 'Elena Rostova',
-                nationality: 'India',
-                passportHash: 'ESP-9874****',
-                photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-                phone: '+34 612 884 902',
-                emergencyContact: '+34 612 001 223 (Father - Carlos)',
-                emergencyRelation: 'Father',
-                hotel: 'The Grand Himalayan Resort, Old Manali',
-                currentLocation: {
-                  lat: userLat,
-                  lng: userLng,
-                  address: liveAddr
-                },
-                batteryLevel: 88,
-                safetyStatus: 'Safe',
-                lastSeenTime: 'Just now',
-                digitalBandId: 'BAND-3301',
-                pastSOSHistory: [],
-                locationConsent: 'granted'
-              };
+              id: 'TR-88219',
+              name: 'Elena Rostova',
+              nationality: 'India',
+              passportHash: 'ESP-9874****',
+              photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+              phone: '+34 612 884 902',
+              emergencyContact: '+34 612 001 223 (Father - Carlos)',
+              emergencyRelation: 'Father',
+              hotel: 'The Grand Himalayan Resort, Old Manali',
+              currentLocation: {
+                lat: userLat,
+                lng: userLng,
+                address: liveAddr
+              },
+              batteryLevel: 88,
+              safetyStatus: 'Safe',
+              lastSeenTime: 'Just now',
+              digitalBandId: 'BAND-3301',
+              pastSOSHistory: [],
+              locationConsent: 'granted'
+            };
 
           setAuthenticatedUser(updatedUser);
 
@@ -583,8 +666,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             await sendLocationPingAPI({
               tourist_id: updatedUser.id,
               latitude: userLat,
-              longitude: userLng,
-              location_source: 'live'
+              longitude: userLng
             });
           } catch (e) {
             console.warn('Telemetry ping sync notice:', e);
@@ -799,8 +881,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-[#F4F6F9] text-slate-900 p-3 sm:p-5 w-full max-w-none flex flex-col justify-between relative pb-24">
-      
+    <div className="min-h-[calc(100vh-80px)] bg-slate-50 text-slate-900 p-3 sm:p-5 w-full max-w-none flex flex-col justify-between relative pb-24">
+
       {/* GLOBAL TOP HEADER FOR TOURIST PORTAL */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center space-x-3 w-full sm:w-auto">
@@ -808,31 +890,31 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
           {authenticatedUser && (
             <button
               onClick={() => setShowProfileModal(true)}
-              className="px-3 py-2 bg-[#0B2447] hover:bg-[#071933] text-white text-xs font-black rounded-2xl border-2 border-[#FF9933]/50 shadow-md transition flex items-center gap-2 cursor-pointer flex-shrink-0"
+              className="px-3 py-2 bg-[#1B2A4A] hover:bg-[#071933] text-white text-xs font-black rounded-2xl border-2 border-[#E8935C]/50 shadow-md transition flex items-center gap-2 cursor-pointer flex-shrink-0"
               title="Click to view full Tourist Profile"
             >
               <img
                 src={authenticatedUser.photoUrl}
                 alt={authenticatedUser.name}
-                className="w-8 h-8 rounded-xl border-2 border-[#138808] object-cover flex-shrink-0"
+                className="w-8 h-8 rounded-xl border-2 border-[#2F4538] object-cover flex-shrink-0"
               />
               <div className="text-left hidden sm:block">
-                <div className="text-[10px] font-extrabold text-[#FF9933] uppercase">My Profile</div>
+                <div className="text-[10px] font-extrabold text-[#E8935C] uppercase">My Profile</div>
                 <div className="text-[11px] text-white font-bold truncate max-w-[110px]">{authenticatedUser.name}</div>
               </div>
-              <User className="w-4 h-4 text-[#FF9933] sm:hidden" />
+              <User className="w-4 h-4 text-[#E8935C] sm:hidden" />
             </button>
           )}
 
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-[#138808] flex items-center justify-center text-[#138808] flex-shrink-0 shadow-sm">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-[#2F4538] flex items-center justify-center text-[#2F4538] flex-shrink-0 shadow-sm">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-[#0B2447]">
+              <h2 className="text-lg font-black text-[#1B2A4A]">
                 {t.touristPortalTitle}
               </h2>
-              <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#138808] font-mono text-[10px] font-black border border-emerald-200">
+              <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#2F4538] font-mono text-[10px] font-black border border-emerald-200">
                 OFFICIAL MOBILE
               </span>
             </div>
@@ -844,18 +926,18 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
         {/* User Info & Controls Header Bar */}
         <div className="flex items-center space-x-2.5 w-full sm:w-auto justify-end flex-wrap gap-y-2">
-          
+
           {/* Quick Profile Button on Right (Mobile fallback) */}
           {authenticatedUser && (
             <button
               onClick={() => setShowProfileModal(true)}
-              className="sm:hidden px-3 py-2 bg-[#0B2447] text-white text-xs font-black rounded-xl border border-slate-700 transition flex items-center gap-1.5"
+              className="sm:hidden px-3 py-2 bg-[#1B2A4A] text-white text-xs font-black rounded-xl border border-slate-700 transition flex items-center gap-1.5"
             >
-              <User className="w-4 h-4 text-[#FF9933]" />
+              <User className="w-4 h-4 text-[#E8935C]" />
               <span>Profile</span>
             </button>
           )}
-          
+
           {/* Gateway Return Button */}
           <button
             onClick={onReturnToGateway}
@@ -883,14 +965,14 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* ========================================================= */}
       {!authenticatedUser ? (
         <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 sm:p-8 shadow-lg">
-          
+
           {/* Header Description */}
           <div className="text-center max-w-lg mx-auto mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[#138808] text-xs font-bold mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[#2F4538] text-xs font-bold mb-3">
               <Shield className="w-3.5 h-3.5" />
               <span>Official Tourist Onboarding & e-KYC</span>
             </div>
-            <h3 className="text-2xl sm:text-3xl font-black text-[#0B2447]">
+            <h3 className="text-2xl sm:text-3xl font-black text-[#1B2A4A]">
               {authTab === 'signup' ? t.signUpTitle : t.signInTitle}
             </h3>
             <p className="mt-2 text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
@@ -903,26 +985,24 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             <button
               type="button"
               onClick={() => setAuthTab('signin')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                authTab === 'signin'
-                  ? 'bg-white text-[#0B2447] shadow-md border border-slate-200'
+              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${authTab === 'signin'
+                  ? 'bg-white text-[#1B2A4A] shadow-md border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
-              <KeyRound className="w-4 h-4 text-[#FF9933]" />
+              <KeyRound className="w-4 h-4 text-[#E8935C]" />
               <span>{t.authSignInTab}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setAuthTab('signup')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                authTab === 'signup'
-                  ? 'bg-white text-[#0B2447] shadow-md border border-slate-200'
+              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${authTab === 'signup'
+                  ? 'bg-white text-[#1B2A4A] shadow-md border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
-              <User className="w-4 h-4 text-[#138808]" />
+              <User className="w-4 h-4 text-[#2F4538]" />
               <span>{t.authSignUpTab}</span>
             </button>
           </div>
@@ -940,7 +1020,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   value={signinTouristId}
                   onChange={(e) => setSigninTouristId(e.target.value)}
                   placeholder="TR-88219 or TR-2026-8942"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm uppercase focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF9933]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm uppercase focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#E8935C]"
                 />
               </div>
 
@@ -954,7 +1034,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   value={signinPhone}
                   onChange={(e) => setSigninPhone(e.target.value)}
                   placeholder="+34 612 884 902"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF9933]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#E8935C]"
                 />
               </div>
 
@@ -964,21 +1044,21 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
               >
-                <KeyRound className="w-5 h-5 text-[#FF9933]" />
+                <KeyRound className="w-5 h-5 text-[#E8935C]" />
                 <span>Send OTP & Activate Trip</span>
               </button>
             </form>
           ) : (
             /* TAB 2: SIGN UP FORM */
             <form onSubmit={handleSignUpSubmit} className="space-y-5">
-              
+
               {/* DigiLocker Section */}
               <div className="p-4 bg-emerald-50/80 rounded-2xl border-2 border-emerald-300/80 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-xl bg-white border border-emerald-300 flex items-center justify-center text-[#138808] shadow-sm flex-shrink-0">
-                    <FileCheck className="w-6 h-6 text-[#138808]" />
+                  <div className="w-12 h-12 rounded-xl bg-white border border-emerald-300 flex items-center justify-center text-[#2F4538] shadow-sm flex-shrink-0">
+                    <FileCheck className="w-6 h-6 text-[#2F4538]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -1000,11 +1080,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDigiLockerModal(true)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow flex items-center gap-2 whitespace-nowrap ${
-                    digiLockerVerified
+                  className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow flex items-center gap-2 whitespace-nowrap ${digiLockerVerified
                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
-                      : 'bg-[#138808] hover:bg-emerald-800 text-white'
-                  }`}
+                      : 'bg-[#2F4538] hover:bg-emerald-800 text-white'
+                    }`}
                 >
                   <ExternalLink className="w-4 h-4" />
                   <span>{digiLockerVerified ? 'DigiLocker Verified ✅' : t.connectDigiLockerBtn}</span>
@@ -1023,7 +1102,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Elena Rostova"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   />
                 </div>
 
@@ -1037,7 +1116,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   />
                 </div>
 
@@ -1050,7 +1129,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="elena.r@example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   />
                 </div>
 
@@ -1064,7 +1143,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     value={emergencyContactName}
                     onChange={(e) => setEmergencyContactName(e.target.value)}
                     placeholder="Carlos Rostova"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   />
                 </div>
 
@@ -1075,7 +1154,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   <select
                     value={emergencyRelation}
                     onChange={(e) => setEmergencyRelation(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   >
                     <option value="Father">Father</option>
                     <option value="Mother">Mother</option>
@@ -1096,7 +1175,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     value={emergencyContactPhone}
                     onChange={(e) => setEmergencyContactPhone(e.target.value)}
                     placeholder="+91 98765 00000"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                   />
                 </div>
               </div>
@@ -1105,9 +1184,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <div className="pt-4">
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Smartphone className="w-5 h-5 text-[#FF9933]" />
+                  <Smartphone className="w-5 h-5 text-[#E8935C]" />
                   <span>Proceed to Mobile OTP Verification</span>
                 </button>
               </div>
@@ -1124,9 +1203,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
           {/* Location / Telemetry Feedback Toast */}
           {locationFeedbackMessage && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border-2 border-[#138808] text-[#138808] text-xs font-black flex items-center justify-between shadow-md animate-fade-in">
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border-2 border-[#2F4538] text-[#2F4538] text-xs font-black flex items-center justify-between shadow-md animate-fade-in">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#138808] flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#2F4538] flex-shrink-0" />
                 <span>{locationFeedbackMessage}</span>
               </div>
               <button onClick={() => setLocationFeedbackMessage(null)} className="text-emerald-800 hover:text-emerald-950 font-bold p-1">
@@ -1163,16 +1242,16 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
           {/* MAIN GRID DASHBOARD CONTAINER MATCHING DIAGRAM */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            
+
             {/* LEFT COLUMN (Cols 1 - 5) */}
             <div className="lg:col-span-5 space-y-5">
-              
+
               {/* BOX 1 TOP LEFT: TELEMETRY BAR & EMERGENCY SOS BUTTON */}
               <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm space-y-4 text-left">
-                
+
                 {/* Emergency SOS Panic Button Center Area */}
                 <div className="py-2 flex flex-col items-center justify-center text-center">
-                  
+
                   {/* STEP: ACTIVE EMERGENCY OR SUCCESS STATE */}
                   {(sosStep === 'active' || sosStep === 'success' || sosActive) ? (
                     <div className="w-full bg-red-50 border-2 border-[#D32F2F] rounded-2xl p-4 shadow-xs space-y-3 animate-pulse">
@@ -1219,9 +1298,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                       <div className="pt-1 flex justify-center gap-2">
                         <button
                           onClick={() => setSirenPlaying(!sirenPlaying)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                            sirenPlaying ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${sirenPlaying ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
+                            }`}
                         >
                           {sirenPlaying ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                           <span>{sirenPlaying ? 'Siren Active' : 'Mute'}</span>
@@ -1330,8 +1408,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     </div>
 
                   ) : countdown !== null ? (
-                    <div className="w-full bg-amber-50 border-2 border-[#FF9933] rounded-2xl p-5 text-center space-y-3">
-                      <div className="text-5xl font-black text-[#FF9933] animate-bounce">
+                    <div className="w-full bg-amber-50 border-2 border-[#E8935C] rounded-2xl p-5 text-center space-y-3">
+                      <div className="text-5xl font-black text-[#E8935C] animate-bounce">
                         {countdown}
                       </div>
                       <p className="text-xs font-bold text-amber-900">
@@ -1382,17 +1460,16 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                             const updatedStatus = await checkBluetoothStatus();
                             setBleStatus(updatedStatus);
                           }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-black transition cursor-pointer ${
-                            deviceRole === role
+                          className={`px-2 py-0.5 rounded text-[10px] font-black transition cursor-pointer ${deviceRole === role
                               ? role === 'TOURIST'
                                 ? 'bg-blue-600 text-white shadow-xs'
                                 : role === 'RELAY'
-                                ? 'bg-amber-600 text-white shadow-xs'
-                                : role === 'GATEWAY'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'bg-purple-600 text-white shadow-xs'
+                                  ? 'bg-amber-600 text-white shadow-xs'
+                                  : role === 'GATEWAY'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-purple-600 text-white shadow-xs'
                               : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                          }`}
+                            }`}
                         >
                           {role}
                         </button>
@@ -1428,7 +1505,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                   <div className="flex items-center space-x-2">
                     <Navigation className="w-4 h-4 text-blue-600" />
-                    <h3 className="text-xs font-black text-[#0B2447] uppercase tracking-wider">
+                    <h3 className="text-xs font-black text-[#1B2A4A] uppercase tracking-wider">
                       Google Maps Directions & Geo-Fence
                     </h3>
                   </div>
@@ -1441,18 +1518,35 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[10px] font-bold uppercase text-slate-500">Geo-Fence Safety Zone:</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
-                      activeGeoFenceZone.riskLevel === 'Unsafe' ? 'bg-red-100 text-red-800 border-red-300' :
-                      activeGeoFenceZone.riskLevel === 'Caution' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                      'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${activeGeoFenceZone.riskLevel === 'Unsafe' ? 'bg-red-100 text-red-800 border-red-300' :
+                        activeGeoFenceZone.riskLevel === 'Caution' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                          'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      }`}>
                       {activeGeoFenceZone.riskLevel} STATE
+                    </span>
+                  </div>
+
+                  {/* Data source indicator: live risk-engine data vs. offline/mock fallback */}
+                  <div className="flex items-center gap-1.5 -mt-1">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${usingLiveGeofences
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      title={
+                        usingLiveGeofences
+                          ? 'Geofence zones loaded live from the risk engine'
+                          : 'Risk engine unreachable — showing offline sample zones'
+                      }
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${usingLiveGeofences ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      {usingLiveGeofences ? 'LIVE GEOFENCE DATA' : 'OFFLINE SAMPLE DATA'}
                     </span>
                   </div>
 
                   {/* Zone Buttons */}
                   <div className="grid grid-cols-3 gap-1.5">
-                    {MOCK_GEOFENCE_ZONES.map((zone) => (
+                    {geoFenceZones.map((zone) => (
                       <button
                         key={zone.id}
                         onClick={() => {
@@ -1460,13 +1554,12 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                           setMapSearchQuery('');
                           setRouteDest(zone.name);
                         }}
-                        className={`px-2 py-2 rounded-xl text-[10px] font-extrabold border transition text-center truncate cursor-pointer ${
-                          activeGeoFenceZone.id === zone.id
+                        className={`px-2 py-2 rounded-xl text-[10px] font-extrabold border transition text-center truncate cursor-pointer ${activeGeoFenceZone.id === zone.id
                             ? zone.riskLevel === 'Unsafe' ? 'bg-red-600 text-white border-red-700 shadow-sm ring-2 ring-red-400' :
                               zone.riskLevel === 'Caution' ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm ring-2 ring-amber-300' :
-                              'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-400'
+                                'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-400'
                             : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
+                          }`}
                       >
                         {zone.name.split(' ')[0]} ({zone.riskLevel})
                       </button>
@@ -1509,7 +1602,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 {/* Search & Route Controls */}
                 <div className="space-y-3 pt-1">
-                  
+
                   {/* Single Location Search Input */}
                   <div className="space-y-1">
                     <label className="block text-[10px] font-extrabold text-slate-600 uppercase">
@@ -1582,11 +1675,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                           setMapSearchQuery(place);
                           setRouteDest(place);
                         }}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${
-                          mapSearchQuery === place || routeDest === place
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${mapSearchQuery === place || routeDest === place
                             ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                        }`}
+                          }`}
                       >
                         {place}
                       </button>
@@ -1601,7 +1693,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     destination={routeDest}
                     searchQuery={mapSearchQuery}
                     height="460px"
-                    geofenceZones={MOCK_GEOFENCE_ZONES}
+                    geofenceZones={geoFenceZones}
                     activeZoneId={activeGeoFenceZone.id}
                     markers={[
                       { id: 'user-loc', lat: lat, lng: lng, title: 'My GPS Location', type: 'user' },
@@ -1612,7 +1704,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                   <div className="flex items-center justify-between text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-semibold">
                     <span>Active Zone: <strong className="text-slate-900">{activeGeoFenceZone.name}</strong></span>
-                    <span className="text-[#138808] font-black flex items-center gap-1">
+                    <span className="text-[#2F4538] font-black flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Himachal Police Monitored</span>
                     </span>
@@ -1625,30 +1717,28 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
             {/* RIGHT COLUMN (Cols 6 - 12): ITINERARY PLANNER & SAFETY HEATMAP */}
             <div className="lg:col-span-7 space-y-5">
-              
+
               <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm space-y-4 text-left">
-                
+
                 {/* RIGHT BOX MODULE SWITCHER TABS */}
                 <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
                   <button
                     onClick={() => setActiveTab('itinerary')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${
-                      activeTab === 'itinerary'
-                        ? 'bg-[#0B2447] text-white shadow-xs'
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${activeTab === 'itinerary'
+                        ? 'bg-[#1B2A4A] text-white shadow-xs'
                         : 'text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
-                    <Calendar className="w-3.5 h-3.5 text-[#138808]" />
+                    <Calendar className="w-3.5 h-3.5 text-[#2F4538]" />
                     <span>Itinerary Planner</span>
                   </button>
 
                   <button
                     onClick={() => setActiveTab('heatmap')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${
-                      activeTab === 'heatmap'
-                        ? 'bg-[#0B2447] text-white shadow-xs'
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition flex items-center justify-center gap-1.5 ${activeTab === 'heatmap'
+                        ? 'bg-[#1B2A4A] text-white shadow-xs'
                         : 'text-slate-600 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     <Map className="w-3.5 h-3.5 text-red-500" />
                     <span>Safety Heatmap</span>
@@ -1660,8 +1750,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                       <div>
-                        <h3 className="text-sm font-black text-[#0B2447] flex items-center gap-1.5">
-                          <Calendar className="w-4 h-4 text-[#138808]" />
+                        <h3 className="text-sm font-black text-[#1B2A4A] flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-[#2F4538]" />
                           <span>Interactive Itinerary & Hazard Evaluation</span>
                         </h3>
                         <p className="text-[11px] text-slate-500 font-medium">
@@ -1671,9 +1761,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                       <button
                         onClick={() => setShowAddItineraryModal(true)}
-                        className="px-3 py-1.5 bg-[#0B2447] hover:bg-[#071933] text-white text-xs font-extrabold rounded-xl shadow-xs transition flex items-center gap-1"
+                        className="px-3 py-1.5 bg-[#1B2A4A] hover:bg-[#071933] text-white text-xs font-extrabold rounded-xl shadow-xs transition flex items-center gap-1"
                       >
-                        <Plus className="w-3.5 h-3.5 text-[#FF9933]" />
+                        <Plus className="w-3.5 h-3.5 text-[#E8935C]" />
                         <span>Add</span>
                       </button>
                     </div>
@@ -1686,7 +1776,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                         >
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-[#0B2447] text-white text-[10px] font-black flex items-center justify-center">
+                              <span className="w-5 h-5 rounded-full bg-[#1B2A4A] text-white text-[10px] font-black flex items-center justify-center">
                                 {idx + 1}
                               </span>
                               <h4 className="text-xs font-black text-slate-900">{item.destination}</h4>
@@ -1694,8 +1784,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                             <div className="flex items-center gap-1.5">
                               {item.safetyStatus === 'Safe Corridor' && (
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#138808] border border-emerald-300 text-[9px] font-black flex items-center gap-1">
-                                  <ShieldCheck className="w-3 h-3 text-[#138808]" /> Safe Corridor
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#2F4538] border border-emerald-300 text-[9px] font-black flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-[#2F4538]" /> Safe Corridor
                                 </span>
                               )}
                               {item.safetyStatus === 'Weather Advisory' && (
@@ -1747,8 +1837,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             <div className="lg:col-span-12 pt-2">
               <div className="w-full bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm text-left space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <h4 className="text-xs font-black text-[#138808] uppercase tracking-wider flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#138808]" />
+                  <h4 className="text-xs font-black text-[#2F4538] uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#2F4538]" />
                     <span>Nearby Safe Havens & Police Posts</span>
                   </h4>
                   <span className="text-[10px] font-bold text-slate-500">24/7 Verified Safe Hubs</span>
@@ -1762,7 +1852,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                         <div className="text-[11px] text-slate-600 font-medium">{st.location.address}</div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#138808] font-mono text-[10px] font-black border border-emerald-200">450m</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#2F4538] font-mono text-[10px] font-black border border-emerald-200">450m</span>
                         <div className="text-[10px] text-slate-500 font-mono mt-0.5">Ph: {st.contactPhone}</div>
                       </div>
                     </div>
@@ -1780,8 +1870,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-6 text-left">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
                 <div>
-                  <h3 className="text-lg font-black text-[#0B2447] flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-[#138808]" />
+                  <h3 className="text-lg font-black text-[#1B2A4A] flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#2F4538]" />
                     <span>Interactive Itinerary & Safety Checker</span>
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -1791,9 +1881,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 <button
                   onClick={() => setShowAddItineraryModal(true)}
-                  className="px-4 py-2.5 bg-[#0B2447] hover:bg-[#071933] text-white text-xs font-extrabold rounded-xl shadow transition flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-[#1B2A4A] hover:bg-[#071933] text-white text-xs font-extrabold rounded-xl shadow transition flex items-center gap-1.5"
                 >
-                  <Plus className="w-4 h-4 text-[#FF9933]" />
+                  <Plus className="w-4 h-4 text-[#E8935C]" />
                   <span>Add New Destination</span>
                 </button>
               </div>
@@ -1807,15 +1897,15 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="w-6 h-6 rounded-full bg-[#0B2447] text-white text-[11px] font-black flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-[#1B2A4A] text-white text-[11px] font-black flex items-center justify-center">
                           {idx + 1}
                         </span>
                         <h4 className="text-sm font-black text-slate-900">{item.destination}</h4>
-                        
+
                         {/* Status Badge */}
                         {item.safetyStatus === 'Safe Corridor' && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#138808] border border-emerald-300 text-[10px] font-black flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3 text-[#138808]" /> Safe Corridor
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#2F4538] border border-emerald-300 text-[10px] font-black flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-[#2F4538]" /> Safe Corridor
                           </span>
                         )}
                         {item.safetyStatus === 'Weather Advisory' && (
@@ -1874,7 +1964,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
           {activeTab === 'heatmap' && (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-6 text-left">
               <div>
-                <h3 className="text-lg font-black text-[#0B2447] flex items-center gap-2">
+                <h3 className="text-lg font-black text-[#1B2A4A] flex items-center gap-2">
                   <Map className="w-5 h-5 text-red-500" />
                   <span>Geofenced Regional Safety Heatmap</span>
                 </h3>
@@ -1887,41 +1977,37 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
                 <button
                   onClick={() => setHeatmapFilter('all')}
-                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${
-                    heatmapFilter === 'all'
+                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${heatmapFilter === 'all'
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   All Zones (5)
                 </button>
                 <button
                   onClick={() => setHeatmapFilter('high')}
-                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${
-                    heatmapFilter === 'high'
+                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${heatmapFilter === 'high'
                       ? 'bg-red-600 text-white'
                       : 'bg-red-50 text-red-800 border border-red-200 hover:bg-red-100'
-                  }`}
+                    }`}
                 >
                   🔴 High-Risk Zones
                 </button>
                 <button
                   onClick={() => setHeatmapFilter('advisory')}
-                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${
-                    heatmapFilter === 'advisory'
+                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${heatmapFilter === 'advisory'
                       ? 'bg-amber-500 text-white'
                       : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-                  }`}
+                    }`}
                 >
                   🟡 Weather Advisories
                 </button>
                 <button
                   onClick={() => setHeatmapFilter('safe')}
-                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${
-                    heatmapFilter === 'safe'
-                      ? 'bg-[#138808] text-white'
+                  className={`px-3.5 py-1.5 rounded-xl font-extrabold transition ${heatmapFilter === 'safe'
+                      ? 'bg-[#2F4538] text-white'
                       : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
-                  }`}
+                    }`}
                 >
                   🟢 Safe Corridors
                 </button>
@@ -1934,7 +2020,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 {/* Simulated Pins */}
                 <div className="relative w-full h-full">
-                  
+
                   {/* Pin 1: Rohtang Pass (High Risk) */}
                   {(heatmapFilter === 'all' || heatmapFilter === 'high') && (
                     <div className="absolute top-[18%] left-[65%] flex items-center gap-1.5 group cursor-pointer">
@@ -1996,7 +2082,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
                   <div className="flex items-center gap-2 mb-1">
-                    <ShieldCheck className="w-4 h-4 text-[#138808]" />
+                    <ShieldCheck className="w-4 h-4 text-[#2F4538]" />
                     <span className="text-xs font-black text-emerald-900 uppercase">Solang-Manali Highway Corridor</span>
                   </div>
                   <p className="text-xs text-emerald-800 font-medium">
@@ -2013,7 +2099,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
           {activeTab === 'route_finder' && (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-6 text-left">
               <div>
-                <h3 className="text-lg font-black text-[#0B2447] flex items-center gap-2">
+                <h3 className="text-lg font-black text-[#1B2A4A] flex items-center gap-2">
                   <Navigation className="w-5 h-5 text-blue-600" />
                   <span>Interactive Safe Route Finder & Hazard Avoidance</span>
                 </h3>
@@ -2069,7 +2155,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     </div>
 
                     <div className="text-right">
-                      <div className="text-sm font-black text-[#0B2447]">Distance: 28.4 km</div>
+                      <div className="text-sm font-black text-[#1B2A4A]">Distance: 28.4 km</div>
                       <div className="text-xs text-blue-800 font-bold">Est. Travel Time: 45 mins</div>
                     </div>
                   </div>
@@ -2081,7 +2167,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     </div>
 
                     <div className="flex items-center space-x-3 p-2.5 bg-white rounded-xl border border-blue-200">
-                      <ShieldCheck className="w-4 h-4 text-[#138808] flex-shrink-0" />
+                      <ShieldCheck className="w-4 h-4 text-[#2F4538] flex-shrink-0" />
                       <div>
                         <div className="font-bold text-slate-900">Km 0.0 — Manali Police Post Checkpoint</div>
                         <div className="text-[11px] text-slate-600">Verification & e-Pass Scanner station</div>
@@ -2125,9 +2211,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
         <div className="fixed bottom-4 left-4 z-40">
           <button
             onClick={() => setShowContactsDrawer(!showContactsDrawer)}
-            className="px-4 py-3 rounded-2xl bg-[#0B2447] text-white text-xs font-black shadow-2xl border-2 border-[#FF9933] hover:bg-[#071933] transition flex items-center gap-2"
+            className="px-4 py-3 rounded-2xl bg-[#1B2A4A] text-white text-xs font-black shadow-2xl border-2 border-[#E8935C] hover:bg-[#071933] transition flex items-center gap-2"
           >
-            <Phone className="w-4 h-4 text-[#FF9933] animate-pulse" />
+            <Phone className="w-4 h-4 text-[#E8935C] animate-pulse" />
             <span>Emergency Hotlines</span>
             <ChevronUp className={`w-4 h-4 transition-transform ${showContactsDrawer ? 'rotate-180' : ''}`} />
           </button>
@@ -2136,9 +2222,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
       {/* EMERGENCY CONTACTS SLIDE-UP DRAWER */}
       {showContactsDrawer && (
-        <div className="fixed bottom-20 left-4 right-4 sm:left-6 sm:right-auto sm:w-96 z-40 bg-white border-2 border-[#0B2447] rounded-3xl p-5 shadow-2xl space-y-4 text-left animate-fade-in">
+        <div className="fixed bottom-20 left-4 right-4 sm:left-6 sm:right-auto sm:w-96 z-40 bg-white border-2 border-[#1B2A4A] rounded-3xl p-5 shadow-2xl space-y-4 text-left animate-fade-in">
           <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-            <h4 className="text-sm font-black text-[#0B2447] flex items-center gap-2">
+            <h4 className="text-sm font-black text-[#1B2A4A] flex items-center gap-2">
               <PhoneCall className="w-4 h-4 text-red-600" />
               <span>Government Emergency Hotlines</span>
             </h4>
@@ -2161,7 +2247,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <span>Ambulance</span>
             </a>
             <a href="tel:1363" className="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl flex items-center space-x-2 text-amber-900 transition">
-              <span className="w-6 h-6 rounded bg-[#FF9933] text-white font-black flex items-center justify-center text-[10px]">1363</span>
+              <span className="w-6 h-6 rounded bg-[#E8935C] text-white font-black flex items-center justify-center text-[10px]">1363</span>
               <span>Tourist Helpline</span>
             </a>
             <a href="tel:1091" className="p-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl flex items-center space-x-2 text-purple-900 transition">
@@ -2184,16 +2270,16 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
           {!chatOpen ? (
             <button
               onClick={() => setChatOpen(true)}
-              className="p-4 rounded-full bg-[#138808] text-white shadow-2xl hover:bg-emerald-800 transition flex items-center gap-2 border-2 border-white cursor-pointer"
+              className="p-4 rounded-full bg-[#2F4538] text-white shadow-2xl hover:bg-emerald-800 transition flex items-center gap-2 border-2 border-white cursor-pointer"
             >
               <MessageSquare className="w-6 h-6 text-white" />
               <span className="hidden sm:inline text-xs font-black">AI Safety Assistant</span>
             </button>
           ) : (
-            <div className="w-80 sm:w-96 bg-white border-2 border-[#138808] rounded-3xl shadow-2xl overflow-hidden flex flex-col h-96 text-left animate-fade-in">
-              
+            <div className="w-80 sm:w-96 bg-white border-2 border-[#2F4538] rounded-3xl shadow-2xl overflow-hidden flex flex-col h-96 text-left animate-fade-in">
+
               {/* Chat Header */}
-              <div className="bg-[#138808] text-white p-3.5 flex items-center justify-between">
+              <div className="bg-[#2F4538] text-white p-3.5 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
                     <ShieldCheck className="w-5 h-5 text-white" />
@@ -2217,11 +2303,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] p-3 rounded-2xl shadow-sm leading-relaxed whitespace-pre-line ${
-                        msg.sender === 'user'
-                          ? 'bg-[#0B2447] text-white rounded-tr-none'
+                      className={`max-w-[85%] p-3 rounded-2xl shadow-sm leading-relaxed whitespace-pre-line ${msg.sender === 'user'
+                          ? 'bg-[#1B2A4A] text-white rounded-tr-none'
                           : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-                      }`}
+                        }`}
                     >
                       {msg.text}
                     </div>
@@ -2256,11 +2341,11 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder="Ask AI safety tip, weather, or routes..."
-                  className="flex-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-medium focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#138808]"
+                  className="flex-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-medium focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#2F4538]"
                 />
                 <button
                   onClick={() => handleSendMessage()}
-                  className="p-2.5 rounded-xl bg-[#138808] hover:bg-emerald-800 text-white transition"
+                  className="p-2.5 rounded-xl bg-[#2F4538] hover:bg-emerald-800 text-white transition"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -2277,7 +2362,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {activeBroadcastModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-900/60 backdrop-blur-md animate-fade-in">
           <div className="bg-white border-4 border-red-600 rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-left my-6 animate-bounce-short">
-            
+
             <div className="w-14 h-14 rounded-2xl bg-red-100 border-2 border-red-600 flex items-center justify-center text-red-600 mb-4 mx-auto shadow-lg">
               <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
@@ -2313,7 +2398,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* ========================================================= */}
       {showAddItineraryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border-2 border-[#0B2447] rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-left">
+          <div className="bg-white border-2 border-[#1B2A4A] rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-left">
             <button
               onClick={() => setShowAddItineraryModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
@@ -2321,8 +2406,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-black text-[#0B2447] mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#FF9933]" />
+            <h3 className="text-lg font-black text-[#1B2A4A] mb-4 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#E8935C]" />
               <span>Add Destination to Itinerary</span>
             </h3>
 
@@ -2382,7 +2467,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-xs shadow-md cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-xs shadow-md cursor-pointer"
                 >
                   Save & AI Safety Check
                 </button>
@@ -2397,7 +2482,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* ========================================================= */}
       {showEditItineraryModal && editingItineraryItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border-2 border-[#0B2447] rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-left">
+          <div className="bg-white border-2 border-[#1B2A4A] rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-left">
             <button
               onClick={() => {
                 setShowEditItineraryModal(false);
@@ -2408,8 +2493,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-black text-[#0B2447] mb-1 flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-[#FF9933]" />
+            <h3 className="text-lg font-black text-[#1B2A4A] mb-1 flex items-center gap-2">
+              <Edit3 className="w-5 h-5 text-[#E8935C]" />
               <span>Modify Itinerary Plan</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium mb-4">
@@ -2482,9 +2567,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Check className="w-4 h-4 text-[#FF9933]" />
+                  <Check className="w-4 h-4 text-[#E8935C]" />
                   <span>Update & Re-verify</span>
                 </button>
               </div>
@@ -2496,7 +2581,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* MODAL 1: DIGILOCKER E-KYC CONNECT MODAL */}
       {showDigiLockerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border-2 border-[#138808] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left">
+          <div className="bg-white border-2 border-[#2F4538] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left">
             <button
               onClick={() => setShowDigiLockerModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
@@ -2505,8 +2590,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             </button>
 
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-[#138808] flex items-center justify-center text-[#138808] shadow-sm">
-                <FileCheck className="w-7 h-7 text-[#138808]" />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-[#2F4538] flex items-center justify-center text-[#2F4538] shadow-sm">
+                <FileCheck className="w-7 h-7 text-[#2F4538]" />
               </div>
               <div>
                 <h3 className="text-xl font-black text-slate-900">
@@ -2526,7 +2611,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 <button
                   onClick={handleConnectDigiLocker}
-                  className="w-full py-3.5 rounded-xl bg-[#138808] hover:bg-emerald-800 text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-xl bg-[#2F4538] hover:bg-emerald-800 text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
                 >
                   <ExternalLink className="w-4 h-4" />
                   <span>Authenticate & Fetch DigiLocker Records</span>
@@ -2536,7 +2621,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
             {digiLockerStep === 'loading' && (
               <div className="py-12 text-center space-y-4">
-                <RefreshCw className="w-10 h-10 text-[#138808] animate-spin mx-auto" />
+                <RefreshCw className="w-10 h-10 text-[#2F4538] animate-spin mx-auto" />
                 <p className="text-sm font-bold text-slate-800">
                   Connecting to Government DigiLocker Identity Vault...
                 </p>
@@ -2549,10 +2634,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   <img
                     src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"
                     alt="Verified Photo"
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-[#138808]"
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-[#2F4538]"
                   />
                   <div>
-                    <div className="px-2 py-0.5 rounded bg-[#138808] text-white text-[10px] font-black inline-block mb-1">
+                    <div className="px-2 py-0.5 rounded bg-[#2F4538] text-white text-[10px] font-black inline-block mb-1">
                       DIGILOCKER VERIFIED E-KYC
                     </div>
                     <div className="text-sm font-extrabold text-slate-900">{fullName || 'Elena Rostova'}</div>
@@ -2562,7 +2647,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
                 <button
                   onClick={handleConfirmDigiLocker}
-                  className="w-full py-3.5 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg"
+                  className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg"
                 >
                   Attach Verified DigiLocker Badge
                 </button>
@@ -2575,7 +2660,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* MODAL 2: OTP MODAL */}
       {showOtpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border-2 border-[#0B2447] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-left">
+          <div className="bg-white border-2 border-[#1B2A4A] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-left">
             <button
               onClick={() => setShowOtpModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
@@ -2584,8 +2669,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             </button>
 
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-[#FF9933] flex items-center justify-center text-[#0B2447]">
-                <Smartphone className="w-7 h-7 text-[#0B2447]" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-[#E8935C] flex items-center justify-center text-[#1B2A4A]">
+                <Smartphone className="w-7 h-7 text-[#1B2A4A]" />
               </div>
               <div>
                 <h3 className="text-xl font-black text-slate-900">{t.otpModalTitle}</h3>
@@ -2612,15 +2697,15 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   value={otpValue}
                   onChange={(e) => setOtpValue(e.target.value)}
                   placeholder="654321"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-300 text-center font-mono text-2xl tracking-[0.4em] font-black focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#138808]"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-300 text-center font-mono text-2xl tracking-[0.4em] font-black focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#2F4538]"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-[#0B2447] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
               >
-                <CheckCircle2 className="w-5 h-5 text-[#FF9933]" />
+                <CheckCircle2 className="w-5 h-5 text-[#E8935C]" />
                 <span>{t.verifyOtpBtn}</span>
               </button>
             </form>
@@ -2631,7 +2716,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* MODAL 3: DIGITAL PASS MODAL */}
       {showDigitalPassModal && authenticatedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-          <div className="bg-white border-2 border-[#138808] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-8">
+          <div className="bg-white border-2 border-[#2F4538] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-8">
             <button
               onClick={() => setShowDigitalPassModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
@@ -2640,32 +2725,32 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             </button>
 
             <div className="border-b border-slate-200 pb-4 mb-5 text-center">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-[#138808] text-[11px] font-black uppercase mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-[#2F4538] text-[11px] font-black uppercase mb-2">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Suraksha Setu • Government Official Pass</span>
               </div>
-              <h3 className="text-xl font-black text-[#0B2447]">
+              <h3 className="text-xl font-black text-[#1B2A4A]">
                 Digital Tourist Safety Pass
               </h3>
             </div>
 
-            <div className="p-5 bg-gradient-to-br from-slate-900 via-[#0B2447] to-slate-900 text-white rounded-2xl shadow-xl relative overflow-hidden border-2 border-[#FF9933]/50">
+            <div className="p-5 bg-gradient-to-br from-slate-900 via-[#1B2A4A] to-slate-900 text-white rounded-2xl shadow-xl relative overflow-hidden border-2 border-[#E8935C]/50">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center space-x-3">
                   <img
                     src={authenticatedUser.photoUrl}
                     alt={authenticatedUser.name}
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-[#FF9933]"
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E8935C]"
                   />
                   <div>
-                    <div className="text-xs text-[#FF9933] font-bold uppercase tracking-wider">Verified Traveler</div>
+                    <div className="text-xs text-[#E8935C] font-bold uppercase tracking-wider">Verified Traveler</div>
                     <div className="text-lg font-black text-white">{authenticatedUser.name}</div>
                     <div className="text-xs text-slate-300 font-mono mt-0.5">{authenticatedUser.phone}</div>
                   </div>
                 </div>
 
                 <div className="bg-white p-2 rounded-xl text-slate-900 flex flex-col items-center flex-shrink-0 shadow">
-                  <QrCode className="w-12 h-12 text-[#0B2447]" />
+                  <QrCode className="w-12 h-12 text-[#1B2A4A]" />
                   <span className="text-[8px] font-mono font-bold mt-1 text-slate-600">SCAN FOR POLICE</span>
                 </div>
               </div>
@@ -2673,7 +2758,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <div className="mt-5 p-3 bg-white/10 backdrop-blur rounded-xl border border-white/20 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-300 font-bold uppercase">Official Tourist ID</div>
-                  <div className="text-xl font-mono font-black text-[#FF9933] tracking-wider">{authenticatedUser.id}</div>
+                  <div className="text-xl font-mono font-black text-[#E8935C] tracking-wider">{authenticatedUser.id}</div>
                 </div>
 
                 <button
@@ -2700,17 +2785,17 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   onClick={handleDownloadPass}
                   className="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-extrabold text-xs transition border border-slate-300 flex items-center justify-center gap-2"
                 >
-                  <Download className="w-4 h-4 text-[#0B2447]" />
+                  <Download className="w-4 h-4 text-[#1B2A4A]" />
                   <span>Download Pass</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handlePassModalProceed}
-                  className="flex-1 py-3 rounded-xl bg-[#138808] hover:bg-emerald-800 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 py-3 rounded-xl bg-[#2F4538] hover:bg-emerald-800 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-2"
                 >
                   <span>Activate Trip & Consent</span>
-                  <ArrowLeft className="w-4 h-4 rotate-180 text-[#FF9933]" />
+                  <ArrowLeft className="w-4 h-4 rotate-180 text-[#E8935C]" />
                 </button>
               </div>
             </div>
@@ -2721,13 +2806,13 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* MODAL 4: MANDATORY CONSENT MODAL */}
       {showConsentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
-          <div className="bg-white border-4 border-[#138808] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-6">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 border-2 border-[#138808] flex items-center justify-center text-[#138808] mb-5 shadow-md">
-              <Navigation className="w-8 h-8 text-[#138808] animate-pulse" />
+          <div className="bg-white border-4 border-[#2F4538] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-6">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 border-2 border-[#2F4538] flex items-center justify-center text-[#2F4538] mb-5 shadow-md">
+              <Navigation className="w-8 h-8 text-[#2F4538] animate-pulse" />
             </div>
 
             <div className="space-y-3 mb-6">
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-[#138808] text-[10px] font-black uppercase">
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-[#2F4538] text-[10px] font-black uppercase">
                 {t.consentModalSub}
               </span>
               <h3 className="text-xl font-black text-slate-900 leading-tight">
@@ -2743,7 +2828,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 type="button"
                 disabled={locationAcquiring}
                 onClick={handleGrantConsent}
-                className="w-full py-4 rounded-2xl bg-[#138808] hover:bg-emerald-800 text-white font-black text-sm transition shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+                className="w-full py-4 rounded-2xl bg-[#2F4538] hover:bg-emerald-800 text-white font-black text-sm transition shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
               >
                 {locationAcquiring ? (
                   <>
@@ -2752,7 +2837,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-5 h-5 text-[#FF9933]" />
+                    <CheckCircle2 className="w-5 h-5 text-[#E8935C]" />
                     <span>{t.consentEnableBtn}</span>
                   </>
                 )}
@@ -2774,7 +2859,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       {/* MODAL 5: TOURIST PROFILE MODAL */}
       {showProfileModal && authenticatedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-          <div className="bg-white border-2 border-[#0B2447] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-8 space-y-5">
+          <div className="bg-white border-2 border-[#1B2A4A] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left my-8 space-y-5">
             <button
               onClick={() => setShowProfileModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500 font-bold transition"
@@ -2786,14 +2871,14 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <img
                 src={authenticatedUser.photoUrl}
                 alt={authenticatedUser.name}
-                className="w-14 h-14 rounded-2xl object-cover border-2 border-[#138808] shadow-md flex-shrink-0"
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-[#2F4538] shadow-md flex-shrink-0"
               />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xl font-black text-slate-900">
                     {authenticatedUser.name}
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#138808] border border-emerald-300 font-mono text-[10px] font-black">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#2F4538] border border-emerald-300 font-mono text-[10px] font-black">
                     {authenticatedUser.id}
                   </span>
                 </div>
@@ -2831,8 +2916,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               <div className="text-[10px] font-extrabold text-slate-500 uppercase">Location & Safety Telemetry</div>
               <div className="flex items-center justify-between">
                 {locationConsent === 'granted' ? (
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-[#138808] border border-emerald-300 text-xs font-extrabold flex items-center gap-1.5">
-                    <Radio className="w-3.5 h-3.5 text-[#138808] animate-pulse" />
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-[#2F4538] border border-emerald-300 text-xs font-extrabold flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-[#2F4538] animate-pulse" />
                     <span>GPS Telemetry ACTIVE</span>
                   </span>
                 ) : (
@@ -2860,9 +2945,9 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   setShowProfileModal(false);
                   setShowDigitalPassModal(true);
                 }}
-                className="w-full py-3 px-4 bg-[#0B2447] hover:bg-[#071933] text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-[#1B2A4A] hover:bg-[#071933] text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
               >
-                <QrCode className="w-4 h-4 text-[#FF9933]" />
+                <QrCode className="w-4 h-4 text-[#E8935C]" />
                 <span>View Digital Safety Pass & QR Code</span>
               </button>
 
@@ -2870,7 +2955,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 onClick={handleTriggerSimulatedAlert}
                 className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-amber-900 font-extrabold text-xs rounded-xl border border-amber-300 transition flex items-center justify-center gap-2"
               >
-                <Bell className="w-4 h-4 text-[#FF9933] animate-bounce" />
+                <Bell className="w-4 h-4 text-[#E8935C] animate-bounce" />
                 <span>Test Broadcast Alert Simulation</span>
               </button>
 

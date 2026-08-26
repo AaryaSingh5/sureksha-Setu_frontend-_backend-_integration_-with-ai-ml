@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run, insertAuditLogSecure } from '../db';
+import { all, get, run, insertAuditLogSecure, computeAuditHash } from '../db';
 
 const router = Router();
 

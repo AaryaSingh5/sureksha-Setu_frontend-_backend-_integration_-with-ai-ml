@@ -65,7 +65,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
   onAddMockSos
 }) => {
   const t = i18n[language];
-  
+
   // Layer toggles
   const [showSosLayer, setShowSosLayer] = useState(true);
   const [showRespondersLayer, setShowRespondersLayer] = useState(true);
@@ -81,24 +81,23 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
   return (
     <div className="space-y-6">
-      
+
       {/* Top Layer Toggles & Action Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        
+
         {/* Layer Toggles */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-extrabold text-[#0B2447] uppercase tracking-wider text-[11px] flex items-center gap-1">
-            <Layers className="w-4 h-4 text-[#FF9933]" />
+          <span className="font-extrabold text-[#1B2A4A] uppercase tracking-wider text-[11px] flex items-center gap-1">
+            <Layers className="w-4 h-4 text-[#E8935C]" />
             <span>{t.layersLabel}</span>
           </span>
 
           <button
             onClick={() => setShowSosLayer(!showSosLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showSosLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showSosLayer
                 ? 'bg-red-50 border-red-300 text-red-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
             <span>{t.layerSosBeacons}</span>
@@ -106,11 +105,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowRespondersLayer(!showRespondersLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showRespondersLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showRespondersLayer
                 ? 'bg-blue-50 border-blue-300 text-blue-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <Radio className="w-3.5 h-3.5 text-blue-600" />
             <span>{t.layerResponders}</span>
@@ -118,23 +116,21 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowStationsLayer(!showStationsLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showStationsLayer
-                ? 'bg-emerald-50 border-emerald-300 text-[#138808]'
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showStationsLayer
+                ? 'bg-emerald-50 border-emerald-300 text-[#2F4538]'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
-            <Building2 className="w-3.5 h-3.5 text-[#138808]" />
+            <Building2 className="w-3.5 h-3.5 text-[#2F4538]" />
             <span>{t.layerStations}</span>
           </button>
 
           <button
             onClick={() => setShowHospitalsLayer(!showHospitalsLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showHospitalsLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showHospitalsLayer
                 ? 'bg-rose-50 border-rose-300 text-rose-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <HeartPulse className="w-3.5 h-3.5 text-rose-600" />
             <span>{t.layerHospitals}</span>
@@ -142,11 +138,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowHeatmapLayer(!showHeatmapLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showHeatmapLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showHeatmapLayer
                 ? 'bg-amber-50 border-amber-300 text-amber-900'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <Flame className="w-3.5 h-3.5 text-amber-600" />
             <span>{t.layerHeatmap}</span>
@@ -161,18 +156,18 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
           <div className="flex items-center space-x-2">
-            <MapPin className="w-5 h-5 text-[#FF9933]" />
+            <MapPin className="w-5 h-5 text-[#E8935C]" />
             <h3 className="text-base font-bold text-slate-900">
               {t.gisMapTitle}
             </h3>
           </div>
-          <span className="text-xs font-mono text-[#138808] font-bold">
+          <span className="text-xs font-mono text-[#2F4538] font-bold">
             Grid IN-901 • Sat-Link: IRNSS NavIC Active
           </span>
         </div>
 
         <div className="relative w-full h-[400px] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center">
-          
+
           {/* Custom Stylized Map Grid & Terrain Lines */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:2.5rem_2.5rem] opacity-40"></div>
 
@@ -200,13 +195,12 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 {inc.status !== 'Resolved' && (
                   <div className="w-12 h-12 rounded-full bg-red-600/30 border border-red-500 animate-ping absolute"></div>
                 )}
-                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center shadow-2xl transition-transform ${
-                  isSelected
+                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center shadow-2xl transition-transform ${isSelected
                     ? 'bg-red-600 border-white scale-125 z-30'
                     : inc.status === 'Resolved'
-                    ? 'bg-[#138808] border-emerald-300 text-white'
-                    : 'bg-red-600 border-amber-400 text-white group-hover:scale-110'
-                }`}>
+                      ? 'bg-[#2F4538] border-emerald-300 text-white'
+                      : 'bg-red-600 border-amber-400 text-white group-hover:scale-110'
+                  }`}>
                   <ShieldAlert className="w-5 h-5 text-white" />
                 </div>
 
@@ -230,7 +224,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 style={{ left: leftPct, top: topPct }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#0B2447] border-2 border-blue-400 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
+                <div className="w-8 h-8 rounded-lg bg-[#1B2A4A] border-2 border-blue-400 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
                   <Radio className="w-4 h-4 text-amber-300" />
                 </div>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-900 border border-slate-800 text-[10px] text-blue-300 px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
@@ -251,7 +245,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 style={{ left: leftPct, top: topPct }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
               >
-                <div className="w-9 h-9 rounded-lg bg-[#138808] border-2 border-emerald-200 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
+                <div className="w-9 h-9 rounded-lg bg-[#2F4538] border-2 border-emerald-200 text-white flex items-center justify-center shadow-lg group-hover:scale-110">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-900 border border-slate-800 text-[10px] text-emerald-300 px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
@@ -293,7 +287,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-5">
           <div className="flex items-center space-x-2">
-            <Radio className="w-5 h-5 text-[#FF9933]" />
+            <Radio className="w-5 h-5 text-[#E8935C]" />
             <h3 className="text-base font-bold text-slate-900">
               {t.kanbanTitle}
             </h3>
@@ -304,7 +298,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
           {/* COLUMN 1: NEW SOS ALERTS */}
           <div className="bg-red-50/60 border border-red-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-red-200 pb-2">
@@ -387,7 +381,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
                   <button
                     onClick={() => onResolveIncident(ticket.id)}
-                    className="w-full mt-2 py-1.5 bg-[#138808] hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow"
+                    className="w-full mt-2 py-1.5 bg-[#2F4538] hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow"
                   >
                     <Check className="w-4 h-4" />
                     <span>{t.markResolvedBtn}</span>
@@ -400,7 +394,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
           {/* COLUMN 3: RESOLVED & SAFE */}
           <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
-              <span className="font-extrabold text-xs uppercase text-[#138808] flex items-center gap-1.5">
+              <span className="font-extrabold text-xs uppercase text-[#2F4538] flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {t.kanbanResolved}
               </span>

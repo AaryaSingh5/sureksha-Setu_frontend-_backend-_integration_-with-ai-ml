@@ -19,7 +19,7 @@
 
 import http from 'http';
 
-const BACKEND_URL = 'http://localhost:8000/api/v1/sos';
+const BACKEND_URL = 'http://localhost:8080/api/v1/sos';
 
 function computeId() {
   return 'SOS-TEST-' + Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -29,7 +29,7 @@ async function postSOS(payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
     const req = http.request(
-      'http://localhost:8000/api/v1/sos',
+      BACKEND_URL,
       {
         method: 'POST',
         headers: {

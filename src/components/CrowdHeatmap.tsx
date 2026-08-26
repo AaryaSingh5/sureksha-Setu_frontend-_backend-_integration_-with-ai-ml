@@ -221,7 +221,7 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
       
       {/* Toast Notification for changing plan */}
       {planChangedToast && (
-        <div className="p-3.5 bg-[#138808] text-white rounded-xl shadow-lg border-2 border-emerald-300 text-xs font-black flex items-center justify-between animate-bounce">
+        <div className="p-3.5 bg-[#2F4538] text-white rounded-xl shadow-lg border-2 border-emerald-300 text-xs font-black flex items-center justify-between animate-bounce">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-amber-300" />
             <span>{planChangedToast}</span>
@@ -429,7 +429,7 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
                   key={c.id}
                   onClick={() => setSelectedClusterId(c.id)}
                   className={`p-3 rounded-xl text-left transition border shadow-2xs space-y-1.5 ${borderCol} ${
-                    isSelected ? 'ring-2 ring-[#0B2447] bg-white font-bold' : 'hover:bg-white'
+                    isSelected ? 'ring-2 ring-[#1B2A4A] bg-white font-bold' : 'hover:bg-white'
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs font-black">
@@ -474,8 +474,8 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
                   🟡 Moderate Crowd
                 </span>
               ) : (
-                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#138808] border border-emerald-300 text-xs font-black flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#138808]" /> Low Density
+                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-[#2F4538] border border-emerald-300 text-xs font-black flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#2F4538]" /> Low Density
                 </span>
               )}
             </div>
@@ -535,7 +535,7 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
             {/* SUGGESTED PEACEFUL ALTERNATIVE CARD & CHANGE PLAN ACTION */}
             <div className="p-4 bg-emerald-50/90 border-2 border-emerald-300 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <span className="px-2 py-0.5 rounded bg-[#138808] text-white text-[9px] font-black uppercase flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded bg-[#2F4538] text-white text-[9px] font-black uppercase flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-amber-300" /> Quiet Alternative
                 </span>
                 <span className="text-[10px] font-extrabold text-emerald-800">
@@ -554,7 +554,7 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
 
               <div className="flex items-center justify-between text-xs bg-white p-2 rounded-xl border border-emerald-200 font-bold">
                 <span className="text-emerald-800">Crowd Load:</span>
-                <span className="text-[#138808] font-black">
+                <span className="text-[#2F4538] font-black">
                   👥 {selectedCluster.suggestedAlternative.crowdCount} tourists ({selectedCluster.suggestedAlternative.capacityPercentage}% capacity)
                 </span>
               </div>
@@ -562,7 +562,7 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
               {/* CHANGE PLAN BUTTON */}
               <button
                 onClick={() => handleSwitchPlan(selectedCluster.suggestedAlternative.name)}
-                className="w-full py-3 px-4 bg-[#138808] hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-2 group cursor-pointer"
+                className="w-full py-3 px-4 bg-[#2F4538] hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-2 group cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4 text-amber-300 group-hover:rotate-180 transition-transform duration-500" />
                 <span>Change Plan: Switch to {selectedCluster.suggestedAlternative.name}</span>

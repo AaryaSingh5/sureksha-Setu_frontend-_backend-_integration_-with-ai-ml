@@ -87,7 +87,7 @@ export const ActualGoogleMap: React.FC<ActualGoogleMapProps> = ({
               if (m.crowdLevel === 'extreme' || m.crowdLevel === 'high') pinBg = '#EF4444';
               else if (m.crowdLevel === 'medium') pinBg = '#F59E0B';
               else if (m.crowdLevel === 'low') pinBg = '#10B981';
-              if (m.type === 'police') pinBg = '#138808';
+              if (m.type === 'police') pinBg = '#2F4538';
 
               return (
                 <AdvancedMarker

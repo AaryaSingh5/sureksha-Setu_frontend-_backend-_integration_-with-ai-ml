@@ -18,6 +18,7 @@ import { i18n } from '../data/i18n';
 
 interface GatewayProps {
   language: Language;
+  onLanguageChange?: (lang: Language) => void;
   onSelectRole: (role: UserRole) => void;
   onAuthenticateAuthority: (badgeId: string, otp: string) => boolean;
 }
@@ -51,10 +52,10 @@ export const Gateway: React.FC<GatewayProps> = ({
     <div className="min-h-[calc(100vh-80px)] bg-[#F8FAFC] text-slate-900 flex flex-col justify-between relative overflow-hidden">
       {/* Background Decorative Grid */}
       <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-70 pointer-events-none"></div>
-      
+
       {/* Top Banner Accent */}
       <div className="relative max-w-6xl mx-auto px-4 py-12 sm:py-16 text-center z-10">
-        
+
         {/* Emblem & Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#FF9933] text-[#0B2447] text-xs font-bold uppercase tracking-wider mb-6 shadow-sm">
           <ShieldAlert className="w-4 h-4 text-[#FF9933]" />
@@ -71,14 +72,14 @@ export const Gateway: React.FC<GatewayProps> = ({
 
         {/* 2 Main Selection Cards */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
-          
+
           {/* TOURIST CARD */}
           <div
             onClick={() => onSelectRole('tourist')}
             className="group relative bg-white rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-[#138808] transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#138808]/10 rounded-full blur-2xl group-hover:bg-[#138808]/20 transition-all"></div>
-            
+
             <div>
               <div className="w-14 h-14 rounded-xl bg-emerald-50 border border-emerald-300 text-[#138808] flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
                 <Smartphone className="w-8 h-8 text-[#138808]" />
@@ -124,7 +125,7 @@ export const Gateway: React.FC<GatewayProps> = ({
             className="group relative bg-white rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-[#0B2447] transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#0B2447]/10 rounded-full blur-2xl group-hover:bg-[#0B2447]/20 transition-all"></div>
-            
+
             <div>
               <div className="w-14 h-14 rounded-xl bg-slate-100 border border-[#0B2447]/30 text-[#0B2447] flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
                 <Shield className="w-8 h-8 text-[#0B2447]" />
@@ -185,7 +186,7 @@ export const Gateway: React.FC<GatewayProps> = ({
       {showMfaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white border-2 border-[#FF9933] rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-left">
-            
+
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-amber-100 border border-[#FF9933] flex items-center justify-center text-[#0B2447]">
                 <KeyRound className="w-6 h-6 text-[#0B2447]" />
