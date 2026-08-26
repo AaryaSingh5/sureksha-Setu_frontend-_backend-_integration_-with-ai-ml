@@ -264,28 +264,31 @@ export default function App() {
   const activeSosCount = incidents.filter((i) => i.status !== 'Resolved').length;
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#F4F6F9] text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#FAF7F2] text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
       
       {/* Command Header */}
-      <Header
-        language={language}
-        onLanguageChange={setLanguage}
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
-        userRole={userRole}
-        onLogout={() => setUserRole('gateway')}
-        activeModule={activeModule}
-        onSelectModule={setActiveModule}
-        globalSearchQuery={globalSearchQuery}
-        onGlobalSearchChange={setGlobalSearchQuery}
-        onExecuteGlobalSearch={handleExecuteGlobalSearch}
-        activeSosCount={activeSosCount}
-      />
+      {userRole !== 'gateway' && (
+        <Header
+          language={language}
+          onLanguageChange={setLanguage}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          userRole={userRole}
+          onLogout={() => setUserRole('gateway')}
+          activeModule={activeModule}
+          onSelectModule={setActiveModule}
+          globalSearchQuery={globalSearchQuery}
+          onGlobalSearchChange={setGlobalSearchQuery}
+          onExecuteGlobalSearch={handleExecuteGlobalSearch}
+          activeSosCount={activeSosCount}
+        />
+      )}
 
       {/* Main Content Area */}
       {userRole === 'gateway' ? (
         <Gateway
           language={language}
+          onLanguageChange={setLanguage}
           onSelectRole={(role) => setUserRole(role)}
           onAuthenticateAuthority={handleAuthenticateAuthority}
         />

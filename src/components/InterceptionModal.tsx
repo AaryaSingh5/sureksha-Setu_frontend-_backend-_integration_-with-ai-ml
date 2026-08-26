@@ -36,7 +36,7 @@ export const InterceptionModal: React.FC<InterceptionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-slate-900 border-2 border-[#FF9933] rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left">
+      <div className="bg-slate-900 border-2 border-[#E8935C] rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left">
         
         {/* Close Button */}
         <button
@@ -48,11 +48,11 @@ export const InterceptionModal: React.FC<InterceptionModalProps> = ({
 
         {/* Title Header */}
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-950/90 border border-[#FF9933] flex items-center justify-center text-[#FF9933] flex-shrink-0 shadow-lg">
+          <div className="w-12 h-12 rounded-xl bg-amber-950/90 border border-[#E8935C] flex items-center justify-center text-[#E8935C] flex-shrink-0 shadow-lg">
             <ShieldAlert className="w-7 h-7" />
           </div>
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[#FF9933] flex items-center gap-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-[#E8935C] flex items-center gap-1">
               <Lock className="w-3.5 h-3.5" /> STATUTORY INTERCEPTION PROTOCOL
             </div>
             <h3 className="text-xl font-extrabold text-white">
@@ -65,7 +65,7 @@ export const InterceptionModal: React.FC<InterceptionModalProps> = ({
         <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300 mb-5 leading-relaxed">
           {t.interceptionDesc}
           <div className="mt-2 font-mono font-bold text-amber-300">
-            Target ID: <span className="underline decoration-[#FF9933]">{touristId}</span>
+            Target ID: <span className="underline decoration-[#E8935C]">{touristId}</span>
           </div>
         </div>
 
@@ -157,7 +157,7 @@ export const InterceptionModal: React.FC<InterceptionModalProps> = ({
               value={officerNotes}
               onChange={(e) => setOfficerNotes(e.target.value)}
               placeholder="e.g., FIR-902/2026 or Solang Patrol Ref #4"
-              className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9933]"
+              className="w-full px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#E8935C]"
             />
           </div>
 
@@ -172,7 +172,7 @@ export const InterceptionModal: React.FC<InterceptionModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 rounded-xl bg-[#FF9933] hover:bg-amber-500 text-slate-950 text-sm font-black transition shadow-lg"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-[#E8935C] hover:bg-amber-500 text-slate-950 text-sm font-black transition shadow-lg"
             >
               {t.confirmAccessBtn}
             </button>
