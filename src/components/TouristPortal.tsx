@@ -44,7 +44,9 @@ import {
   Edit3,
   Search,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Bluetooth,
+  Radio
 } from 'lucide-react';
 import { Language, TouristProfile, ItineraryItem, ChatMessage, BroadcastAlert, GeoFenceZone, SosStepState } from '../types';
 import { i18n } from '../data/i18n';
@@ -54,6 +56,16 @@ import { CrowdHeatmap } from './CrowdHeatmap';
 import { getSOSLocation, getLiveLocation } from '../lib/location';
 import { queueSOSRecord, saveLastKnownLocation } from '../lib/db';
 import { submitSOSOnline, syncQueuedSOS, sendLocationPingAPI } from '../lib/api';
+import {
+  globalSOSRouter,
+  initBluetoothMeshListener,
+  getOrCreateDeviceId,
+  getDeviceRole,
+  setDeviceRole,
+  checkBluetoothStatus,
+  requestBluetoothPermissions,
+  DeviceRole
+} from '../lib/bluetoothTransport';
 
 
 interface TouristPortalProps {
@@ -138,6 +150,53 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   const [sosSendingProgress, setSosSendingProgress] = useState(0);
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
   const [sosErrorMessage, setSosErrorMessage] = useState<string | null>(null);
+  const [bleMeshInfo, setBleMeshInfo] = useState<string | null>(null);
+  const [bleHopDetails, setBleHopDetails] = useState<{ hopCount: number; maxHops: number; transport: string } | null>(null);
+  const [deviceRole, setLocalDeviceRole] = useState<DeviceRole>(getDeviceRole());
+  const [bleStatus, setBleStatus] = useState<{
+    supported: boolean;
+    enabled: boolean;
+    isAdvertising: boolean;
+    isScanning: boolean;
+    hasPermissions: boolean;
+    isNative: boolean;
+    description: string;
+  } | null>(null);
+
+  // Initialize background Bluetooth Mesh store-and-forward relay listener & status polling
+  useEffect(() => {
+    checkBluetoothStatus().then(status => {
+      setBleStatus(status);
+      if (status.isNative && !status.hasPermissions) {
+        requestBluetoothPermissions().then(() => checkBluetoothStatus().then(setBleStatus));
+      }
+    });
+
+    const statusInterval = setInterval(() => {
+      checkBluetoothStatus().then(setBleStatus);
+    }, 4000);
+
+    // Auto-sync queued offline SOS records whenever network is available
+    const syncInterval = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        syncQueuedSOS();
+      }
+    }, 5000);
+
+    initBluetoothMeshListener((packet, uploadedOnline) => {
+      if (uploadedOnline) {
+        setBleMeshInfo(`📶 Nearby node received & uploaded SOS #${packet.sos_id.substring(0, 8)} to Police Command Center!`);
+      } else {
+        setBleMeshInfo(`📡 Relayed SOS #${packet.sos_id.substring(0, 8)} across Bluetooth Mesh (Hop ${packet.hop_count}/${packet.max_hops})`);
+      }
+      setTimeout(() => setBleMeshInfo(null), 7000);
+    });
+
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(syncInterval);
+    };
+  }, []);
 
   // Integrated Geo-Fence States
   const [activeGeoFenceZone, setActiveGeoFenceZone] = useState<GeoFenceZone>(MOCK_GEOFENCE_ZONES[0]); // Solang Valley (Unsafe)
@@ -156,10 +215,14 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       const loc = await getSOSLocation();
       setSosSendingProgress(40);
 
-      // 2. Build local SOS record
+      const myDeviceId = getOrCreateDeviceId();
+
+      // 2. Build local SOS record with multi-hop metadata
       const localRecord = {
         local_sos_id: crypto.randomUUID(),
         tourist_id: authenticatedUser?.id || 'TR-88219',
+        tourist_name: authenticatedUser?.name || 'Elena Rostova',
+        tourist_phone: authenticatedUser?.phone || '+34 612 884 902',
         triggered_at: new Date().toISOString(),
         latitude: loc.latitude,
         longitude: loc.longitude,
@@ -167,41 +230,46 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
         location_source: loc.location_source,
         description: `Emergency SOS Alert (${loc.location_source})`,
         severity: 'HIGH',
-        status: 'QUEUED_OFFLINE'
+        status: 'QUEUED_OFFLINE',
+        hop_count: 0,
+        max_hops: 5,
+        origin_device_id: myDeviceId,
+        hop_path: [myDeviceId]
       };
 
-      // 3. Save to IndexedDB
+      // 3. Save to IndexedDB (Source of Truth)
       await queueSOSRecord(localRecord);
       setSosSendingProgress(60);
 
       if (forceError) {
-        throw new Error('Network signal drop detected in Solang valley sector. Local relay timeout.');
+        throw new Error('Network signal drop detected in Solang valley sector. Bluetooth relay initiated.');
       }
 
-      // 4. Try online transmission
-      if (navigator.onLine) {
-        setSosSendingProgress(85);
-        try {
-          const res = await submitSOSOnline(localRecord);
-          setSosSendingProgress(100);
-          setSosStep('success');
-          setIncidentRef(res.incident_id || res.sos_id || `INC-${Math.floor(1000 + Math.random() * 9000)}`);
-          setSosActive(true);
-          onTriggerSos(authenticatedUser?.name || 'Elena Rostova', `${loc.latitude?.toFixed(4) || lat.toFixed(4)}, ${loc.longitude?.toFixed(4) || lng.toFixed(4)} (${activeGeoFenceZone.name})`);
-        } catch (err: any) {
-          console.warn("Online transmission failed, record queued:", err);
-          setSosSendingProgress(100);
-          setSosStep('success');
-          setIncidentRef('QUEUED-OFFLINE');
-          setSosActive(true);
-          onTriggerSos(authenticatedUser?.name || 'Elena Rostova', `${loc.latitude?.toFixed(4) || lat.toFixed(4)}, ${loc.longitude?.toFixed(4) || lng.toFixed(4)} (Queued Offline)`);
-        }
-      } else {
-        setSosSendingProgress(100);
-        setSosStep('success');
-        setIncidentRef('QUEUED-OFFLINE');
+      // 4. Route via Transport Router (Direct Internet if online, Bluetooth multi-hop if offline)
+      setSosSendingProgress(85);
+      const routeRes = await globalSOSRouter.routeSOS(localRecord);
+      setSosSendingProgress(100);
+      setSosStep('success');
+      setBleHopDetails({
+        hopCount: routeRes.hopCount,
+        maxHops: routeRes.maxHops,
+        transport: routeRes.transportUsed
+      });
+
+      if (routeRes.transportUsed === 'INTERNET') {
+        setIncidentRef(localRecord.local_sos_id);
         setSosActive(true);
-        onTriggerSos(authenticatedUser?.name || 'Elena Rostova', `${loc.latitude?.toFixed(4) || lat.toFixed(4)}, ${loc.longitude?.toFixed(4) || lng.toFixed(4)} (Queued Offline)`);
+        onTriggerSos(
+          authenticatedUser?.name || 'Elena Rostova',
+          `${loc.latitude?.toFixed(4) || lat.toFixed(4)}, ${loc.longitude?.toFixed(4) || lng.toFixed(4)} (${activeGeoFenceZone.name})`
+        );
+      } else {
+        setIncidentRef(`BLE-RELAY-HOP-${routeRes.hopCount}`);
+        setSosActive(true);
+        onTriggerSos(
+          authenticatedUser?.name || 'Elena Rostova',
+          `${loc.latitude?.toFixed(4) || lat.toFixed(4)}, ${loc.longitude?.toFixed(4) || lng.toFixed(4)} (BLE Relayed Hop ${routeRes.hopCount}/${routeRes.maxHops})`
+        );
       }
     } catch (err: any) {
       setSosStep('error');
@@ -216,6 +284,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
     setIncidentRef(null);
     setSosErrorMessage(null);
     setSosSendingProgress(0);
+    setBleHopDetails(null);
   };
 
 
@@ -418,7 +487,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
     } else {
       const found = existingTourists.find(
-        (t) => t.id.toLowerCase() === signinTouristId.trim().toLowerCase()
+        (t) => (t.id || '').toLowerCase() === signinTouristId.trim().toLowerCase()
       );
 
       const userProfile: TouristProfile = found || {
@@ -1079,6 +1148,19 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             </div>
           )}
 
+          {/* Bluetooth Mesh Relay Notification Toast */}
+          {bleMeshInfo && (
+            <div className="p-3.5 rounded-2xl bg-indigo-50 border-2 border-indigo-500 text-indigo-950 text-xs font-black flex items-center justify-between shadow-md animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Bluetooth className="w-4 h-4 text-indigo-600 flex-shrink-0 animate-bounce" />
+                <span>{bleMeshInfo}</span>
+              </div>
+              <button onClick={() => setBleMeshInfo(null)} className="text-indigo-700 hover:text-indigo-950 font-bold p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* MAIN GRID DASHBOARD CONTAINER MATCHING DIAGRAM */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
@@ -1110,6 +1192,21 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                       <p className="text-[11px] text-red-800 font-bold">
                         GPS Telemetry ({lat.toFixed(4)}, {lng.toFixed(4)}) broadcasting to Police Command Station.
                       </p>
+
+                      {/* Bluetooth Multi-Hop Transport Badge */}
+                      {bleHopDetails && (
+                        <div className="p-2.5 bg-blue-50/90 rounded-xl border border-blue-200 text-left text-[11px] text-blue-950 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <Bluetooth className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                            <span>Transport:</span>
+                            <span className="font-mono text-blue-800 font-extrabold">{bleHopDetails.transport}</span>
+                          </div>
+                          <div className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-blue-200 text-[10px]">
+                            {bleHopDetails.transport === 'BLUETOOTH' ? `Mesh Hop ${bleHopDetails.hopCount}/${bleHopDetails.maxHops}` : 'Direct Gateway'}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-2.5 bg-white/80 rounded-xl border border-red-200 text-left text-[11px] text-slate-700 space-y-1">
                         <div className="font-extrabold text-red-900 flex items-center justify-between">
                           <span>Responder Status:</span>
@@ -1264,6 +1361,62 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                       <p className="mt-3 text-[11px] text-slate-500 font-medium max-w-xs text-center">
                         Tap button to initiate guided distress signal & live location dispatch to nearest PCR unit.
                       </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* REAL ANDROID BLE MULTI-HOP ROLE & STATUS CONTROLLER */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                      <Bluetooth className={`w-4 h-4 ${bleStatus?.enabled ? 'text-blue-600' : 'text-slate-400'}`} />
+                      <span>BLE Mesh Role:</span>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {(['TOURIST', 'RELAY', 'GATEWAY', 'AUTO'] as DeviceRole[]).map((role) => (
+                        <button
+                          key={role}
+                          onClick={async () => {
+                            setLocalDeviceRole(role);
+                            await setDeviceRole(role);
+                            const updatedStatus = await checkBluetoothStatus();
+                            setBleStatus(updatedStatus);
+                          }}
+                          className={`px-2 py-0.5 rounded text-[10px] font-black transition cursor-pointer ${
+                            deviceRole === role
+                              ? role === 'TOURIST'
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : role === 'RELAY'
+                                ? 'bg-amber-600 text-white shadow-xs'
+                                : role === 'GATEWAY'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[10px] font-mono text-slate-500 gap-1 pt-0.5">
+                    <span className="truncate">
+                      BLE: {bleStatus?.isNative ? 'Android Native Stack' : 'Web/Laptop Bridge'} ({bleStatus?.description || 'Active'})
+                    </span>
+                    {bleStatus?.isNative && !bleStatus?.hasPermissions && (
+                      <button
+                        onClick={() => requestBluetoothPermissions().then(() => checkBluetoothStatus().then(setBleStatus))}
+                        className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold hover:bg-blue-200 cursor-pointer"
+                      >
+                        Grant Permissions
+                      </button>
+                    )}
+                  </div>
+
+                  {bleMeshInfo && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-950 text-[11px] font-bold flex items-center gap-2 animate-pulse">
+                      <span>{bleMeshInfo}</span>
                     </div>
                   )}
                 </div>

@@ -3,7 +3,11 @@
 
 Suraksha Setu is an enterprise-grade, offline-first tourist safety and emergency response platform designed for mountainous and high-risk tourism corridors (pilot region: **Kullu – Manali – Rohtang, Himachal Pradesh**). 
 
+<<<<<<< Updated upstream
 The platform bridges tourists and law enforcement command centers through a unified ecosystem combining **offline-first SOS dispatch**, an **unsupervised machine learning anomaly detection engine (Isolation Forest)**, **explainable rule-based risk scoring**, **cryptographic e-KYC / digital identity verification**, and an **immutable audit trail**.
+=======
+The platform bridges travelers and law enforcement command centers through a unified ecosystem combining **offline-first SOS dispatch**, an **unsupervised machine learning anomaly detection engine (Isolation Forest)**, **explainable rule-based risk scoring**, **cryptographic e-KYC / digital identity verification**, and an **immutable audit trail**.
+>>>>>>> Stashed changes
 
 ---
 

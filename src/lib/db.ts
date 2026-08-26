@@ -9,6 +9,8 @@ export interface LocationData {
 export interface SOSRecord {
   local_sos_id?: string;
   tourist_id?: string | null;
+  tourist_name?: string | null;
+  tourist_phone?: string | null;
   triggered_at?: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -20,6 +22,14 @@ export interface SOSRecord {
   server_sos_id?: string | null;
   server_incident_id?: string | null;
   synced_at?: string | null;
+
+  // Bluetooth Mesh & Multi-Hop Relay Fields
+  hop_count?: number;
+  max_hops?: number;
+  hop_path?: string[];
+  origin_device_id?: string;
+  is_relayed?: boolean;
+  relay_timestamp?: string | null;
 }
 
 const DB_NAME = "smart_tourist_safety_sos";
@@ -107,6 +117,14 @@ export async function queueSOSRecord(sosRecord: SOSRecord): Promise<SOSRecord> {
       server_sos_id: sosRecord.server_sos_id || null,
       server_incident_id: sosRecord.server_incident_id || null,
       synced_at: sosRecord.synced_at || null,
+
+      // Bluetooth Hop Fields
+      hop_count: sosRecord.hop_count ?? 0,
+      max_hops: sosRecord.max_hops ?? 5,
+      hop_path: sosRecord.hop_path ? [...sosRecord.hop_path] : [],
+      origin_device_id: sosRecord.origin_device_id || "ORIGIN_NODE",
+      is_relayed: sosRecord.is_relayed || false,
+      relay_timestamp: sosRecord.relay_timestamp || null,
     };
     const request = store.put(record);
     request.onsuccess = () => resolve(record as SOSRecord);
@@ -122,9 +140,22 @@ export async function getQueuedSOSRecords(): Promise<SOSRecord[]> {
     const request = store.getAll();
     request.onsuccess = () => {
       const all: SOSRecord[] = request.result || [];
-      const queued = all.filter((r) => r.status === "QUEUED_OFFLINE");
+      const queued = all.filter(
+        (r) => r.status === "QUEUED_OFFLINE" || r.status === "RELAYED_OFFLINE"
+      );
       resolve(queued);
     };
+    request.onerror = (e) => reject((e.target as IDBRequest).error);
+  });
+}
+
+export async function getSOSRecord(local_sos_id: string): Promise<SOSRecord | null> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_QUEUE, "readonly");
+    const store = tx.objectStore(STORE_QUEUE);
+    const request = store.get(local_sos_id);
+    request.onsuccess = () => resolve(request.result || null);
     request.onerror = (e) => reject((e.target as IDBRequest).error);
   });
 }
@@ -146,6 +177,8 @@ export async function updateSOSRecordStatus(
       record.status = newStatus;
       if (serverData.server_sos_id) record.server_sos_id = serverData.server_sos_id;
       if (serverData.server_incident_id) record.server_incident_id = serverData.server_incident_id;
+      if (serverData.hop_count !== undefined) record.hop_count = serverData.hop_count;
+      if (serverData.hop_path) record.hop_path = serverData.hop_path;
       if (newStatus === "SYNCED") record.synced_at = new Date().toISOString();
 
       const putReq = store.put(record);

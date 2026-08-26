@@ -1,0 +1,13 @@
+{
+  "appId": "com.suraksha.setu",
+  "appName": "Suraksha Setu",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

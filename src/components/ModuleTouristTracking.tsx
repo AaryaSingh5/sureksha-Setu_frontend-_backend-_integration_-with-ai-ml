@@ -90,62 +90,72 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
   const handleConfirmInterception = (reason: InterceptionReason, notes: string) => {
     if (!pendingTouristId) return;
 
+    const query = pendingTouristId.toLowerCase();
     const found = tourists.find(
-      (tp) => tp.id.toLowerCase() === pendingTouristId.toLowerCase() || tp.name.toLowerCase().includes(pendingTouristId.toLowerCase())
+      (tp) => (tp.id || '').toLowerCase() === query || (tp.name || '').toLowerCase().includes(query)
     );
 
     if (found) {
       setSelectedTourist(found);
       onLogAudit(
         'TOURIST_LOOKUP',
-        found.id + ' (' + found.name + ')',
+        (found.id || 'N/A') + ' (' + (found.name || 'Tourist') + ')',
         reason,
         `Accessed profile & telemetry. Notes: ${notes || 'None'}`
       );
-      setToastMessage(`✓ Interception Verified: Audit Logged for ${found.name}`);
+      setToastMessage(`✓ Interception Verified: Audit Logged for ${found.name || 'Tourist'}`);
+      setShowInterceptionModal(false);
+      setPendingTouristId(null);
     } else {
-      setToastMessage(`⚠️ Tourist ID "${pendingTouristId}" not found in database.`);
+      setToastMessage(`❌ No citizen record found for "${pendingTouristId}"`);
+      setShowInterceptionModal(false);
+      setPendingTouristId(null);
     }
-
-    setShowInterceptionModal(false);
-    setPendingTouristId(null);
-    setTimeout(() => setToastMessage(''), 4000);
   };
 
   return (
     <div className="space-y-6">
       
-      {/* Toast Alert Notice */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="p-3 bg-emerald-950 border border-emerald-600 text-emerald-200 text-xs font-bold rounded-xl flex items-center justify-between shadow-lg animate-fade-in">
-          <span>{toastMessage}</span>
-          <span className="text-[10px] opacity-75">Statutory Audit Log #AUD-LOK</span>
+        <div className="p-3.5 bg-[#0B2447] text-white text-xs font-bold rounded-2xl flex items-center justify-between shadow-xl border border-blue-900 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage('')} className="text-slate-400 hover:text-white text-xs">✕</button>
         </div>
       )}
 
-      {/* SEARCH CARD */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="max-w-2xl mx-auto text-center space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-[#FF9933] text-[#0B2447] text-xs font-bold uppercase">
-            <UserSearch className="w-4 h-4 text-[#FF9933]" />
-            <span>{t.touristSearchTitle}</span>
+      {/* SEARCH BANNER & INTERCEPTION TRIGGER */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div className="max-w-3xl mx-auto text-center space-y-4">
+          
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#0B2447] text-xs font-bold uppercase tracking-wider">
+            <UserSearch className="w-4 h-4 text-blue-600" />
+            <span>{t.auditInterceptionBadge}</span>
           </div>
 
-          <p className="text-xs text-slate-600 font-medium">
-            {t.touristSearchSub}
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            {t.touristTrackingHeader}
+          </h2>
+
+          <p className="text-xs text-slate-600 max-w-xl mx-auto font-medium">
+            {t.interceptionNotice}
           </p>
 
-          <div className="flex items-center gap-2 pt-2">
+          {/* Search Input Bar */}
+          <div className="flex items-center gap-2 max-w-lg mx-auto pt-2">
             <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && triggerSearch(searchInput)}
-                placeholder="Enter Tourist ID (e.g., TR-88219, TR-44021)..."
-                className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF9933]"
+                placeholder="Enter Tourist ID (e.g. TR-88219) or Name..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2447] font-medium"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             </div>
 
             <button
@@ -172,7 +182,7 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
                     : 'bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
                 }`}
               >
-                {tp.id} ({tp.name.split(' ')[0]})
+                {tp.id} ({tp.name ? tp.name.split(' ')[0] : 'Tourist'})
               </button>
             ))}
           </div>
@@ -182,13 +192,13 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
 
       {/* TOURIST PROFILE DASHBOARD */}
       {selectedTourist && (() => {
-        const fullName = selectedTourist.full_name || selectedTourist.name;
-        const digitalId = selectedTourist.digital_id || selectedTourist.id;
+        const fullName = selectedTourist.full_name || selectedTourist.name || 'Tourist';
+        const digitalId = selectedTourist.digital_id || selectedTourist.id || 'TR-DEMO';
         const touristUuid = selectedTourist.tourist_id || '8f7a9d1b-3c4e-4f52-a1b2-c3d4e5f67890';
         const docType = selectedTourist.kyc_document_type || 'Passport';
         const isKycVerified = selectedTourist.kyc_verified ?? true;
-        const phone = selectedTourist.phone;
-        const email = selectedTourist.email || `${fullName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+        const phone = selectedTourist.phone || '+91 98765 43210';
+        const email = selectedTourist.email || `${(fullName || 'tourist').toLowerCase().replace(/\s+/g, '.')}@example.com`;
         const emergencyContact = selectedTourist.emergency_contact || selectedTourist.emergencyContact;
         const languagePref = selectedTourist.preferred_language || 'Spanish';
         const regDateFormatted = formatRegistrationDate(selectedTourist.created_at || '2026-07-15T08:30:00Z');

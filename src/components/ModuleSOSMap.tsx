@@ -39,6 +39,21 @@ interface ModuleSOSMapProps {
   onAddMockSos: () => void;
 }
 
+function formatTicketTime(timestamp?: string): string {
+  if (!timestamp) return 'Just now';
+  try {
+    if (timestamp.includes(' ')) {
+      return timestamp.split(' ')[1] || timestamp;
+    }
+    if (timestamp.includes('T')) {
+      return timestamp.split('T')[1]?.substring(0, 8) || timestamp;
+    }
+    return timestamp;
+  } catch {
+    return 'Active';
+  }
+}
+
 export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
   language,
   incidents,
@@ -311,14 +326,14 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 <div key={ticket.id} className="p-3.5 bg-white border border-red-200 rounded-xl space-y-2 shadow-sm">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-mono font-bold text-red-700">{ticket.id}</span>
-                    <span className="text-[10px] text-slate-500 font-medium">{ticket.timestamp.split(' ')[1]}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{formatTicketTime(ticket.timestamp)}</span>
                   </div>
 
-                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName}</div>
-                  <div className="text-xs text-slate-600">{ticket.location.address}</div>
+                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-xs text-slate-600">{ticket.location?.address || 'Solang Valley Sector'}</div>
 
                   <div className="text-[11px] p-2 bg-amber-50 rounded border border-amber-200 text-amber-900 font-medium">
-                    ⚠️ {ticket.notes}
+                    ⚠️ {ticket.notes || 'Emergency distress signal'}
                   </div>
 
                   <div className="pt-2 flex flex-col gap-1.5">
@@ -363,8 +378,8 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                     <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-extrabold">DISPATCHED</span>
                   </div>
 
-                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName}</div>
-                  <div className="text-xs text-slate-600">{ticket.location.address}</div>
+                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-xs text-slate-600">{ticket.location?.address || 'Solang Valley Sector'}</div>
 
                   <div className="p-2 bg-amber-50 rounded border border-amber-200 text-xs text-amber-900 font-mono font-bold">
                     Assigned: {ticket.unitAssigned || 'PCR Unit'}
@@ -403,10 +418,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 <div key={ticket.id} className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1 text-xs shadow-sm hover:border-slate-300 transition">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-[#138808]">{ticket.id}</span>
-                    <span className="text-[10px] text-slate-500">{ticket.timestamp.split(' ')[1]}</span>
+                    <span className="text-[10px] text-slate-500">{formatTicketTime(ticket.timestamp)}</span>
                   </div>
-                  <div className="font-bold text-slate-900">{ticket.touristName}</div>
-                  <div className="text-[11px] text-slate-600">{ticket.hazardType}</div>
+                  <div className="font-bold text-slate-900">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-[11px] text-slate-600">{ticket.hazardType || 'Distress Incident'}</div>
                   <div className="text-[10px] text-[#138808] font-bold mt-1">✓ Citizen Marked Safe</div>
                 </div>
               ))

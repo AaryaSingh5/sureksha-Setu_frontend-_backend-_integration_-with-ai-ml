@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db';
+import { all, get, run, insertAuditLogSecure } from '../db';
 
 const router = Router();
 
@@ -112,22 +112,17 @@ router.post('/broadcasts', async (req, res) => {
       ]
     );
 
-    // Auto audit log entry
-    await run(
-      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-        timestamp,
-        'Rajesh Kumar, IPS',
-        'IPS-7742',
-        'BROADCAST_SENT',
-        `Geofence ${region}`,
-        'Emergency Hazard Alert',
-        `Pushed ${severity} alert to ~${recCount} active tourist devices.`,
-        req.ip || '10.142.0.88'
-      ]
-    );
+    // Auto audit log entry via cryptographic hash chaining
+    await insertAuditLogSecure({
+      timestamp,
+      officerName: 'Rajesh Kumar, IPS',
+      officerBadge: 'IPS-7742',
+      actionType: 'BROADCAST_SENT',
+      targetId: `Geofence ${region}`,
+      reason: 'Emergency Hazard Alert',
+      details: `Pushed ${severity} alert to ~${recCount} active tourist devices.`,
+      ipAddress: req.ip || '10.142.0.88'
+    });
 
     const created = await get('SELECT * FROM broadcast_alerts WHERE id = ?', [id]);
     res.status(201).json({
@@ -150,6 +145,65 @@ router.post('/broadcasts', async (req, res) => {
   }
 });
 
+// GET /api/v1/audit-logs/verify - Cryptographic Tamper-Evidence Chain Verification
+router.get('/audit-logs/verify', async (req, res) => {
+  try {
+    const logs = await all<any>('SELECT * FROM audit_logs ORDER BY rowid ASC');
+    let expectedPrevHash: string | null = null;
+
+    for (let i = 0; i < logs.length; i++) {
+      const log = logs[i];
+
+      // 1. Check prev_hash continuity
+      if (i === 0) {
+        if (log.prev_hash !== null && log.prev_hash !== '' && log.prev_hash !== undefined) {
+          return res.json({
+            valid: false,
+            brokenAtLogId: log.id,
+            message: `Chain integrity broken at genesis entry ${log.id}: expected null prev_hash, got ${log.prev_hash}`
+          });
+        }
+      } else {
+        if (log.prev_hash !== expectedPrevHash) {
+          return res.json({
+            valid: false,
+            brokenAtLogId: log.id,
+            message: `Chain integrity broken at entry ${log.id}: prev_hash does not match predecessor hash`
+          });
+        }
+      }
+
+      // 2. Recompute SHA-256 hash for this entry
+      const calculatedHash = computeAuditHash(
+        log.prev_hash,
+        log.officer_badge || '',
+        log.action_type || '',
+        log.target_id || '',
+        log.timestamp || '',
+        log.reason || ''
+      );
+
+      if (calculatedHash !== log.entry_hash) {
+        return res.json({
+          valid: false,
+          brokenAtLogId: log.id,
+          message: `Chain integrity broken at entry ${log.id}: hash mismatch (stored: ${log.entry_hash}, computed: ${calculatedHash})`
+        });
+      }
+
+      expectedPrevHash = log.entry_hash;
+    }
+
+    res.json({
+      valid: true,
+      totalEntries: logs.length,
+      latestHash: expectedPrevHash
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/v1/audit-logs - Security Audit Vault
 router.get('/audit-logs', async (req, res) => {
   try {
@@ -163,7 +217,9 @@ router.get('/audit-logs', async (req, res) => {
       targetId: l.target_id,
       reason: l.reason,
       details: l.details,
-      ipAddress: l.ip_address
+      ipAddress: l.ip_address,
+      prevHash: l.prev_hash,
+      entryHash: l.entry_hash
     }));
     res.json(formatted);
   } catch (err: any) {
@@ -171,41 +227,22 @@ router.get('/audit-logs', async (req, res) => {
   }
 });
 
-// POST /api/v1/audit-logs - Insert manual audit log
+// POST /api/v1/audit-logs - Insert manual audit log with tamper-evident hash chaining
 router.post('/audit-logs', async (req, res) => {
   try {
-    const { actionType, targetId, reason, details } = req.body;
-    const id = `AUD-${Math.floor(1000 + Math.random() * 9000)}`;
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const { actionType, targetId, reason, details, officerName, officerBadge } = req.body;
 
-    await run(
-      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        timestamp,
-        'Rajesh Kumar, IPS',
-        'IPS-7742',
-        actionType || 'TOURIST_LOOKUP',
-        targetId || 'N/A',
-        reason || 'Standard Security Procedure',
-        details || 'Command Center Action logged',
-        req.ip || '10.142.0.88'
-      ]
-    );
-
-    const created = await get('SELECT * FROM audit_logs WHERE id = ?', [id]);
-    res.status(201).json({
-      id: created.id,
-      timestamp: created.timestamp,
-      officerName: created.officer_name,
-      officerBadge: created.officer_badge,
-      actionType: created.action_type,
-      targetId: created.target_id,
-      reason: created.reason,
-      details: created.details,
-      ipAddress: created.ip_address
+    const created = await insertAuditLogSecure({
+      officerName: officerName || 'Rajesh Kumar, IPS',
+      officerBadge: officerBadge || 'IPS-7742',
+      actionType: actionType || 'TOURIST_LOOKUP',
+      targetId: targetId || 'N/A',
+      reason: reason || 'Standard Security Procedure',
+      details: details || 'Command Center Action logged',
+      ipAddress: req.ip || '10.142.0.88'
     });
+
+    res.status(201).json(created);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
