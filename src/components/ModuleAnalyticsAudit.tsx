@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   FileCheck2,
   Download,
   Search,
   ShieldCheck,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  MapPin,
-  Calendar,
-  Filter
+  RefreshCw,
+  ShieldAlert,
+  CheckCircle,
+  Database
 } from 'lucide-react';
 import { Language, AuditLog } from '../types';
 import { i18n } from '../data/i18n';
+import { fetchAuditChainAPI, verifyAuditBlockchainAPI, ChainBlock } from '../lib/api';
 
 interface ModuleAnalyticsAuditProps {
   language: Language;
@@ -27,6 +26,59 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
   const t = i18n[language];
   const [searchFilter, setSearchFilter] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('ALL');
+
+  // Blockchain Ledger Integration State
+  const [activeTab, setActiveTab] = useState<'officer' | 'blockchain'>('officer');
+  const [chainBlocks, setChainBlocks] = useState<ChainBlock[]>([]);
+  const [verificationStatus, setVerificationStatus] = useState<{
+    isValid: boolean | null;
+    blocksCount: number;
+    message: string;
+  }>({ isValid: null, blocksCount: 0, message: 'Not verified yet' });
+  const [isLoadingChain, setIsLoadingChain] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [chainError, setChainError] = useState<string | null>(null);
+
+  const loadChain = async () => {
+    setIsLoadingChain(true);
+    setChainError(null);
+    try {
+      const blocks = await fetchAuditChainAPI();
+      setChainBlocks(Array.isArray(blocks) ? blocks : []);
+    } catch (err: any) {
+      console.error("Error loading chain:", err);
+      setChainBlocks([]);
+      setChainError(err?.message || 'Failed to load blockchain ledger. The risk engine may be offline.');
+    } finally {
+      setIsLoadingChain(false);
+    }
+  };
+
+  const verifyChain = async () => {
+    setIsVerifying(true);
+    try {
+      const result = await verifyAuditBlockchainAPI();
+      setVerificationStatus({
+        isValid: Boolean(result?.is_valid),
+        blocksCount: result?.blocks_count ?? 0,
+        message: result?.verification_message || 'Verification completed'
+      });
+    } catch (err: any) {
+      setVerificationStatus({
+        isValid: false,
+        blocksCount: 0,
+        message: 'Verification request failed: ' + (err?.message || 'network error')
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'blockchain') {
+      loadChain();
+    }
+  }, [activeTab]);
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesSearch =
@@ -171,99 +223,271 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
         </div>
       </div>
 
+      {/* TABS SELECTOR FOR OFFICER ACTIVITY VS BLOCKCHAIN LEDGER */}
+      <div className="flex border-b border-slate-200 space-x-6 text-sm mb-2">
+        <button
+          onClick={() => setActiveTab('officer')}
+          className={`pb-3 font-bold transition flex items-center gap-2 ${
+            activeTab === 'officer'
+              ? 'border-b-2 border-[#FF9933] text-[#0B2447]'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+          <span>Officer Activity Logs</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('blockchain')}
+          className={`pb-3 font-bold transition flex items-center gap-2 ${
+            activeTab === 'blockchain'
+              ? 'border-b-2 border-[#FF9933] text-[#0B2447]'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span className="flex items-center gap-1.5">
+            <span>Blockchain Audit Ledger</span>
+            <span className="px-1.5 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 rounded font-mono">Simulated</span>
+          </span>
+        </button>
+      </div>
+
       {/* AUDIT LOGS TABLE & EXPORT */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 mb-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-[#2F4538]" />
-              <span>{t.auditLogsTitle}</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">{t.auditLogsDesc}</p>
-          </div>
+        {activeTab === 'officer' ? (
+          <>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#2F4538]" />
+                  <span>{t.auditLogsTitle}</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">{t.auditLogsDesc}</p>
+              </div>
 
-          <button
-            onClick={exportCsv}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-          >
-            <Download className="w-4 h-4 text-[#E8935C]" />
-            <span>{t.exportCsvBtn}</span>
-          </button>
-        </div>
+              <button
+                onClick={exportCsv}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                <Download className="w-4 h-4 text-[#E8935C]" />
+                <span>{t.exportCsvBtn}</span>
+              </button>
+            </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4 text-xs">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search by Officer, Target ID, Reason, or Details..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#E8935C] focus:bg-white"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          </div>
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4 text-xs">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Search by Officer, Target ID, Reason, or Details..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#E8935C] focus:bg-white"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              </div>
 
-          <select
-            value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold focus:outline-none focus:bg-white"
-          >
-            <option value="ALL">All Action Types</option>
-            <option value="TOURIST_LOOKUP">TOURIST_LOOKUP</option>
-            <option value="DISPATCH_UNIT">DISPATCH_UNIT</option>
-            <option value="BROADCAST_SENT">BROADCAST_SENT</option>
-          </select>
-        </div>
+              <select
+                value={actionFilter}
+                onChange={(e) => setActionFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold focus:outline-none focus:bg-white"
+              >
+                <option value="ALL">All Action Types</option>
+                <option value="TOURIST_LOOKUP">TOURIST_LOOKUP</option>
+                <option value="DISPATCH_UNIT">DISPATCH_UNIT</option>
+                <option value="BROADCAST_SENT">BROADCAST_SENT</option>
+              </select>
+            </div>
 
-        {/* Audit Log Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 text-slate-600 uppercase font-mono text-[10px] border-b border-slate-200">
-              <tr>
-                <th className="p-3">{t.colTimestamp}</th>
-                <th className="p-3">{t.colOfficer}</th>
-                <th className="p-3">{t.colAction}</th>
-                <th className="p-3">{t.colTarget}</th>
-                <th className="p-3">{t.colReason}</th>
-                <th className="p-3">Details</th>
-                <th className="p-3">{t.colIp}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
-                    No matching audit logs found.
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition font-mono">
-                    <td className="p-3 text-slate-500 whitespace-nowrap">{log.timestamp}</td>
-                    <td className="p-3 text-slate-900 font-bold">{log.officerName} ({log.officerBadge})</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                        log.actionType === 'TOURIST_LOOKUP'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : log.actionType === 'DISPATCH_UNIT'
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-blue-100 text-blue-800 border border-blue-200'
-                      }`}>
-                        {log.actionType}
-                      </span>
-                    </td>
-                    <td className="p-3 text-[#1B2A4A] font-bold">{log.targetId}</td>
-                    <td className="p-3 text-[#2F4538] font-bold">{log.reason || 'N/A'}</td>
-                    <td className="p-3 text-slate-700 max-w-xs truncate font-sans font-medium">{log.details}</td>
-                    <td className="p-3 text-slate-400 text-[10px]">{log.ipAddress}</td>
+            {/* Audit Log Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 uppercase font-mono text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">{t.colTimestamp}</th>
+                    <th className="p-3">{t.colOfficer}</th>
+                    <th className="p-3">{t.colAction}</th>
+                    <th className="p-3">{t.colTarget}</th>
+                    <th className="p-3">{t.colReason}</th>
+                    <th className="p-3">Details</th>
+                    <th className="p-3">{t.colIp}</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
+                        No matching audit logs found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50 transition font-mono">
+                        <td className="p-3 text-slate-500 whitespace-nowrap">{log.timestamp}</td>
+                        <td className="p-3 text-slate-900 font-bold">{log.officerName} ({log.officerBadge})</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                            log.actionType === 'TOURIST_LOOKUP'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                              : log.actionType === 'DISPATCH_UNIT'
+                              ? 'bg-red-100 text-red-800 border border-red-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}>
+                            {log.actionType}
+                          </span>
+                        </td>
+                        <td className="p-3 text-[#1B2A4A] font-bold">{log.targetId}</td>
+                        <td className="p-3 text-[#2F4538] font-bold">{log.reason || 'N/A'}</td>
+                        <td className="p-3 text-slate-700 max-w-xs truncate font-sans font-medium">{log.details}</td>
+                        <td className="p-3 text-slate-400 text-[10px]">{log.ipAddress}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-6">
+            
+            {/* Blockchain Header & Verification Info */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-200 pb-5">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Database className="w-5 h-5 text-[#FF9933]" />
+                  <span>Cryptographic Safety Audit Ledger</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  A tamper-proof permissioned blockchain ledger logging critical safety alerts and DID registrations.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Verification Badge */}
+                {verificationStatus.isValid === null ? (
+                  <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold border border-slate-300">
+                    Ledger Status: Unverified
+                  </span>
+                ) : verificationStatus.isValid ? (
+                  <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300 flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Integrity Verified</span>
+                  </span>
+                ) : (
+                  <span className="px-3 py-1.5 rounded-xl bg-rose-100 text-rose-800 text-xs font-bold border border-rose-300 flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-600" />
+                    <span>Ledger Corrupted!</span>
+                  </span>
+                )}
+
+                <button
+                  onClick={verifyChain}
+                  disabled={isVerifying}
+                  className="px-4 py-2 bg-[#0B2447] hover:bg-[#0b2447]/90 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
+                  <span>Verify Ledger</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Verification Status Details Alert */}
+            {verificationStatus.message && (
+              <div className={`p-4 rounded-xl border text-xs flex items-start gap-2.5 ${
+                verificationStatus.isValid === null
+                  ? 'bg-slate-50 border-slate-200 text-slate-600'
+                  : verificationStatus.isValid
+                  ? 'bg-emerald-50/50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                {verificationStatus.isValid === false ? (
+                  <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 flex-shrink-0" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                )}
+                <div>
+                  <div className="font-bold">Ledger Integrity Message</div>
+                  <div className="mt-0.5 font-mono">{verificationStatus.message}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Block Ledger Explorer */}
+            {isLoadingChain ? (
+              <div className="p-12 text-center text-xs text-slate-500 font-medium">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#FF9933] mb-2" />
+                <span>Loading blockchain blocks...</span>
+              </div>
+            ) : chainError ? (
+              <div className="p-12 text-center text-slate-500 border border-dashed border-rose-200 rounded-xl bg-rose-50/40">
+                <ShieldAlert className="w-8 h-8 text-rose-300 mx-auto mb-2" />
+                <div className="text-xs font-bold text-rose-800">Unable to load ledger</div>
+                <p className="text-[11px] text-rose-600 mt-1 max-w-xs mx-auto">{chainError}</p>
+              </div>
+            ) : chainBlocks.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl">
+                <Database className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <div className="text-xs font-bold text-slate-800">Ledger is Empty</div>
+                <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
+                  No blocks have been generated yet. Issue a Digital Identity or trigger critical alerts to record on-chain.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                  Blockchain Blocks Ledger ({chainBlocks.length} Blocks)
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto pr-1">
+                  {chainBlocks.map((block) => (
+                    <div
+                      key={block.block_index}
+                      className="p-4 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition text-xs space-y-3"
+                    >
+                      {/* Top bar */}
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-[#0B2447] text-white rounded text-[10px] font-mono font-bold">
+                            BLOCK #{block.block_index}
+                          </span>
+                          {block.block_index === 0 && (
+                            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[9px] font-mono font-bold">
+                              Genesis Block
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono font-bold">{block.timestamp}</span>
+                      </div>
+
+                      {/* Cryptographic Linkage Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono text-slate-500">
+                        <div>
+                          <span className="font-bold text-slate-700">Block Hash:</span>
+                          <span className="ml-1 text-slate-600 bg-slate-200/50 px-1.5 py-0.5 rounded truncate inline-block max-w-[250px] align-middle" title={block.hash}>
+                            {block.hash}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-700">Previous Hash:</span>
+                          <span className="ml-1 text-slate-600 bg-slate-200/50 px-1.5 py-0.5 rounded truncate inline-block max-w-[250px] align-middle" title={block.previous_hash}>
+                            {block.previous_hash}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Block Data Payload */}
+                      <div className="p-3 bg-slate-900 text-emerald-400 rounded-lg font-mono text-[11px] overflow-x-auto shadow-inner border border-slate-800">
+                        <div className="text-[9px] text-slate-500 uppercase font-sans font-bold mb-1">Block Data Payload</div>
+                        <pre className="whitespace-pre-wrap">{JSON.stringify(block.data, null, 2)}</pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
 

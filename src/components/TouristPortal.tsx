@@ -53,7 +53,7 @@ import { ActualGoogleMap } from './ActualGoogleMap';
 import { CrowdHeatmap } from './CrowdHeatmap';
 import { getSOSLocation, getLiveLocation } from '../lib/location';
 import { queueSOSRecord, saveLastKnownLocation } from '../lib/db';
-import { submitSOSOnline, syncQueuedSOS, sendLocationPingAPI } from '../lib/api';
+import { submitSOSOnline, syncQueuedSOS, sendLocationPingAPI, fetchLiveGeofencesAPI, LiveGeofenceZoneRaw } from '../lib/api';
 
 
 interface TouristPortalProps {
@@ -141,6 +141,84 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
   // Integrated Geo-Fence States
   const [activeGeoFenceZone, setActiveGeoFenceZone] = useState<GeoFenceZone>(MOCK_GEOFENCE_ZONES[0]); // Solang Valley (Unsafe)
+
+  // Live geofence zones, fetched from risk_engine (GET /offline/geofences).
+  // Falls back to MOCK_GEOFENCE_ZONES if the risk engine isn't reachable
+  // (e.g. Python service not running yet), so the map never breaks.
+  const [geoFenceZones, setGeoFenceZones] = useState<GeoFenceZone[]>(MOCK_GEOFENCE_ZONES);
+  const [usingLiveGeofences, setUsingLiveGeofences] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const tierToRiskLevel = (tier: string): GeoFenceZone['riskLevel'] => {
+      if (tier === 'restricted') return 'Unsafe';
+      if (tier === 'caution') return 'Caution';
+      return 'Safe';
+    };
+
+    // Approximate a polygon's center + a covering radius from its ring of
+    // [lat, lon] points, since the existing map component renders zones as
+    // center+radius circles rather than polygons.
+    const polygonToCenterRadius = (polygon: [number, number][]) => {
+      const lats = polygon.map((p) => p[0]);
+      const lons = polygon.map((p) => p[1]);
+      const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+      const centerLng = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+      // Rough meters-per-degree at this latitude, converted to km, then
+      // find the furthest corner from the center to size the covering circle.
+      const kmPerDegLat = 111.32;
+      const kmPerDegLng = 111.32 * Math.cos((centerLat * Math.PI) / 180);
+      let maxDistKm = 0;
+      for (const [lat, lon] of polygon) {
+        const dLat = (lat - centerLat) * kmPerDegLat;
+        const dLng = (lon - centerLng) * kmPerDegLng;
+        const distKm = Math.sqrt(dLat * dLat + dLng * dLng);
+        if (distKm > maxDistKm) maxDistKm = distKm;
+      }
+
+      return { lat: centerLat, lng: centerLng, radiusKm: Math.max(maxDistKm, 0.2) };
+    };
+
+    (async () => {
+      try {
+        const live = await fetchLiveGeofencesAPI();
+        const allZones: LiveGeofenceZoneRaw[] = [
+          ...live.restricted_zones,
+          ...live.caution_zones,
+          ...live.safe_zones
+        ];
+
+        const converted: GeoFenceZone[] = allZones.map((z) => {
+          const { lat, lng, radiusKm } = polygonToCenterRadius(z.polygon);
+          return {
+            id: z.id,
+            name: z.name,
+            riskLevel: tierToRiskLevel(z.tier),
+            description: z.description,
+            center: { lat, lng },
+            radiusKm
+          };
+        });
+
+        if (!cancelled && converted.length > 0) {
+          setGeoFenceZones(converted);
+          setUsingLiveGeofences(true);
+          setActiveGeoFenceZone((prev) => converted.find((z) => z.name === prev.name) || converted[0]);
+        }
+      } catch (err) {
+        // Risk engine not reachable — silently keep the mock data fallback
+        // already set as the initial state, so the map stays usable.
+        console.warn('[Geofence] Could not reach live risk engine, using mock geofence data.', err);
+        setUsingLiveGeofences(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleStartSosConfirmation = () => {
     setSosStep('confirming');
@@ -514,8 +592,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             await sendLocationPingAPI({
               tourist_id: updatedUser.id,
               latitude: userLat,
-              longitude: userLng,
-              location_source: 'live'
+              longitude: userLng
             });
           } catch (e) {
             console.warn('Telemetry ping sync notice:', e);
@@ -1297,9 +1374,28 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     </span>
                   </div>
 
+                  {/* Data source indicator: live risk-engine data vs. offline/mock fallback */}
+                  <div className="flex items-center gap-1.5 -mt-1">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                        usingLiveGeofences
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                      title={
+                        usingLiveGeofences
+                          ? 'Geofence zones loaded live from the risk engine'
+                          : 'Risk engine unreachable — showing offline sample zones'
+                      }
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${usingLiveGeofences ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      {usingLiveGeofences ? 'LIVE GEOFENCE DATA' : 'OFFLINE SAMPLE DATA'}
+                    </span>
+                  </div>
+
                   {/* Zone Buttons */}
                   <div className="grid grid-cols-3 gap-1.5">
-                    {MOCK_GEOFENCE_ZONES.map((zone) => (
+                    {geoFenceZones.map((zone) => (
                       <button
                         key={zone.id}
                         onClick={() => {
@@ -1448,7 +1544,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                     destination={routeDest}
                     searchQuery={mapSearchQuery}
                     height="460px"
-                    geofenceZones={MOCK_GEOFENCE_ZONES}
+                    geofenceZones={geoFenceZones}
                     activeZoneId={activeGeoFenceZone.id}
                     markers={[
                       { id: 'user-loc', lat: lat, lng: lng, title: 'My GPS Location', type: 'user' },

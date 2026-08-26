@@ -210,5 +210,10 @@ def run_risk_evaluation(tourist_id, lat, lon, speed, battery_level, connectivity
             database.update_tourist_safety_status(tourist_id, "SOS Active")
         elif final_band == "HIGH":
             database.update_tourist_safety_status(tourist_id, "Watch")
+
+        # TODO: Hook for blockchain-style audit logging:
+        # if final_band in ["HIGH", "CRITICAL"]:
+        #     from identity.audit_service import log_incident
+        #     log_incident(tourist_id, explainability_object)
             
     return explainability_object

@@ -332,3 +332,129 @@ export async function fetchModelMetadataAPI(): Promise<any> {
   return await res.json();
 }
 
+// ----------------------------------------------------
+// Live Geofence Data (Himachal Pradesh zones from risk_engine)
+// ----------------------------------------------------
+
+export interface LiveGeofenceZoneRaw {
+  id: string;
+  name: string;
+  tier: 'restricted' | 'caution' | 'safe';
+  description: string;
+  polygon: [number, number][]; // array of [lat, lon] pairs, closed ring
+}
+
+export interface LiveGeofencesResponse {
+  restricted_zones: LiveGeofenceZoneRaw[];
+  caution_zones: LiveGeofenceZoneRaw[];
+  safe_zones: LiveGeofenceZoneRaw[];
+}
+
+/**
+ * Fetches the live Himachal Pradesh geofence zones from the risk engine
+ * (risk_engine/regional_context.py, exposed via GET /offline/geofences).
+ * Throws on failure — callers should catch this and fall back to
+ * MOCK_GEOFENCE_ZONES so the map still renders if the Python service
+ * isn't running (e.g. during a demo where only the frontend is up).
+ */
+export async function fetchLiveGeofencesAPI(): Promise<LiveGeofencesResponse> {
+  const baseUrl = getRiskEngineBaseUrl();
+  const res = await fetch(`${baseUrl}/offline/geofences`);
+  if (!res.ok) throw new Error(`Failed to fetch live geofences: ${res.status}`);
+  return await res.json();
+}
+
+// ----------------------------------------------------
+// Blockchain-style Digital ID & Audit Trail
+// (risk_engine/identity/ — chain.py, did_service.py, audit_service.py)
+// ----------------------------------------------------
+
+export interface DigitalIdRecord {
+  tourist_id: string;
+  did: string;
+  kyc_hash: string;
+  issued_at: string;
+  valid_until: string;
+  is_active: boolean;
+}
+
+export interface ChainBlock {
+  block_index: number;
+  timestamp: string;
+  data: Record<string, any> | { raw_data: string };
+  previous_hash: string;
+  hash: string;
+}
+
+export interface ChainVerification {
+  is_valid: boolean;
+  blocks_count: number;
+  verification_message: string;
+}
+
+/** Issues a new blockchain-anchored digital ID for a tourist. */
+export async function issueDigitalIdAPI(
+  touristId: string,
+  kycHash: string,
+  validUntil: string
+): Promise<DigitalIdRecord> {
+  const baseUrl = getRiskEngineBaseUrl();
+  const res = await fetch(`${baseUrl}/identity/issue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tourist_id: touristId,
+      kyc_hash: kycHash,
+      valid_until: validUntil
+    })
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Failed to issue digital ID: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as DigitalIdRecord;
+}
+
+/**
+ * Verifies a tourist's digital ID. Returns null (not an error) if no DID has
+ * been issued yet for this tourist_id — this is an expected, common state,
+ * not a failure.
+ */
+export async function verifyDigitalIdAPI(touristId: string): Promise<DigitalIdRecord | null> {
+  const baseUrl = getRiskEngineBaseUrl();
+  const res = await fetch(`${baseUrl}/identity/verify/${encodeURIComponent(touristId)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Failed to verify digital ID: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as DigitalIdRecord;
+}
+
+/** Fetches the full hash-linked audit chain (all issued IDs + logged incidents). */
+export async function fetchChainAPI(): Promise<ChainBlock[]> {
+  const baseUrl = getRiskEngineBaseUrl();
+  const res = await fetch(`${baseUrl}/identity/chain`);
+  if (!res.ok) throw new Error(`Failed to fetch chain: ${res.status}`);
+  const json = await res.json();
+  return json.data as ChainBlock[];
+}
+
+/** Verifies chain integrity (confirms no block has been tampered with). */
+export async function verifyChainIntegrityAPI(): Promise<ChainVerification> {
+  const baseUrl = getRiskEngineBaseUrl();
+  const res = await fetch(`${baseUrl}/identity/chain/verify`);
+  if (!res.ok) throw new Error(`Failed to verify chain integrity: ${res.status}`);
+  const json = await res.json();
+  return json.data as ChainVerification;
+}
+
+// Aliases matching the names used in ModuleAnalyticsAudit.tsx's blockchain
+// ledger explorer tab — same underlying implementation, kept as separate
+// exported names so both call sites work without needing to agree on one
+// naming convention.
+export const fetchAuditChainAPI = fetchChainAPI;
+export const verifyAuditBlockchainAPI = verifyChainIntegrityAPI;
+
