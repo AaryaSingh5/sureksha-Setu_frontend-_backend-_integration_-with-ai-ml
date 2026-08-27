@@ -541,12 +541,28 @@ export const MOCK_GEOFENCE_ZONES: GeoFenceZone[] = [
     radiusKm: 1.5
   },
   {
+    id: 'zone-rohtang',
+    name: 'Rohtang Pass Avalanche Ridge',
+    riskLevel: 'Unsafe',
+    description: 'Severe high-altitude avalanche corridor. Travel prohibited without mountain pass authorization.',
+    center: { lat: 32.3716, lng: 77.2466 },
+    radiusKm: 4.0
+  },
+  {
     id: 'zone-2',
     name: 'Hadimba Pine Forest Trek',
     riskLevel: 'Caution',
     description: 'Dense forest cover area. Stick to designated trails and maintain band connectivity.',
     center: { lat: 32.2480, lng: 77.1850 },
     radiusKm: 2.0
+  },
+  {
+    id: 'zone-jogini',
+    name: 'Jogini Waterfall Slippery Trail',
+    riskLevel: 'Caution',
+    description: 'Slippery rock faces and steep drop-offs. Use designated paths and avoid river crossing.',
+    center: { lat: 32.2680, lng: 77.1950 },
+    radiusKm: 1.8
   },
   {
     id: 'zone-3',
@@ -557,4 +573,5 @@ export const MOCK_GEOFENCE_ZONES: GeoFenceZone[] = [
     radiusKm: 3.0
   }
 ];
+
 
