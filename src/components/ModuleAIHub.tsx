@@ -281,81 +281,48 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
           {/* Right Col: Unified AI Safety Desk */}
           <div className="space-y-6">
             
-            {/* Card 1: AI Incident Anomaly Clusters */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            {/* Unified Card: AI Safety Desk & Reviews */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Flame className="w-5 h-5 text-red-600 animate-pulse" />
-                  <span>AI Incident Anomaly Clusters</span>
-                </h3>
-                <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] font-bold">
-                  {clusters.length} Active
-                </span>
-              </div>
-              <div className="space-y-3">
-                {clusters.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => setSelectedClusterId(c.id)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition text-left ${
-                      selectedClusterId === c.id
-                        ? 'bg-amber-50/80 border-[#E8935C] shadow-sm'
-                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-extrabold text-slate-900">{c.regionName}</span>
-                      <span className="font-mono font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
-                        {c.riskScore}% Risk
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-600 line-clamp-2 font-medium">
-                      {language === 'hi' ? c.descriptionHi : c.descriptionEn}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Card 2: AI Safety Reviews */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
-                  <span>AI Safety Reviews</span>
+                  <span>AI Anomaly & Safety Reviews</span>
                 </h3>
                 <span className="px-2 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 font-mono text-[10px] font-bold">
                   {riskAlerts.filter(a => a.status === 'NEW').length} Pending
                 </span>
               </div>
 
+              {/* Section 1: Pending Alerts for Review */}
               <div className="space-y-3">
+                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  Pending Reviews
+                </div>
                 {riskAlerts.filter(a => a.status === 'NEW').length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 font-medium space-y-1">
-                    <CheckCircle2 className="w-8 h-8 text-[#2F4538] mx-auto" />
-                    <p className="text-xs">No pending reviews. All active tourists are within safe baseline bounds.</p>
+                  <div className="text-center py-6 text-slate-500 border border-dashed border-slate-200 rounded-xl space-y-1 bg-slate-50/50">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                    <p className="text-[11px] font-semibold text-slate-600">No pending safety reviews.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                     {riskAlerts.filter(a => a.status === 'NEW').map((alert) => (
                       <div
                         key={alert.id}
-                        className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs text-left"
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs text-left shadow-sm"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-extrabold font-mono text-slate-800 bg-slate-200 px-1.5 py-0.5 rounded">
                             {alert.tourist_id}
                           </span>
-                          <span className="font-mono font-bold text-red-700 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded font-bold">
+                          <span className="font-mono font-bold text-red-700 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">
                             Score: {alert.total_score}/100
                           </span>
                         </div>
                         
-                        {/* Short summary of why flagged */}
                         <div className="text-[10px] text-slate-600 font-medium leading-relaxed">
                           {alert.details.breakdown.rule_based.factors.length > 0 
-                            ? `Fired Rules: ${alert.details.breakdown.rule_based.factors.map((f: any) => f.factor.replace('_', ' ')).join(', ')}` 
-                            : 'Flagged by ML Anomaly engine.'}
+                            ? `Fired: ${alert.details.breakdown.rule_based.factors.map((f: any) => f.factor.replace(/_/g, ' ')).join(', ')}` 
+                            : 'Flagged by ML anomaly engine.'}
                         </div>
 
                         {/* Actions */}
@@ -363,7 +330,7 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
                           <button
                             disabled={feedbackLoading === alert.id}
                             onClick={() => handleFeedback(alert.id, 'confirmed')}
-                            className="px-2 py-1 bg-[#E8935C] text-[#0C2340] hover:bg-amber-600 text-[10px] font-black rounded flex items-center gap-1 shadow-sm transition disabled:opacity-50 cursor-pointer"
+                            className="px-2.5 py-1 bg-[#E8935C] text-[#0C2340] hover:bg-amber-600 text-[10px] font-black rounded flex items-center gap-1 shadow-sm transition disabled:opacity-50 cursor-pointer"
                           >
                             <ThumbsUp className="w-3.5 h-3.5" />
                             <span>Confirm</span>
@@ -371,7 +338,7 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
                           <button
                             disabled={feedbackLoading === alert.id}
                             onClick={() => handleFeedback(alert.id, 'false_positive')}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold rounded flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold rounded flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
                           >
                             <ThumbsDown className="w-3.5 h-3.5" />
                             <span>False Pos</span>
@@ -381,6 +348,37 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Section 2: Active Anomaly Clusters */}
+              <div className="space-y-3 pt-3 border-t border-slate-200/60">
+                <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider flex justify-between">
+                  <span>Active Anomaly Zones</span>
+                  <span className="font-mono text-slate-500 font-semibold">{clusters.length} active</span>
+                </div>
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {clusters.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => setSelectedClusterId(c.id)}
+                      className={`p-3 rounded-xl border cursor-pointer transition text-left ${
+                        selectedClusterId === c.id
+                          ? 'bg-amber-50/80 border-[#E8935C] shadow-sm'
+                          : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-extrabold text-slate-900">{c.regionName}</span>
+                        <span className="font-mono font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">
+                          {c.riskScore}% Risk
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 line-clamp-2 font-medium">
+                        {language === 'hi' ? c.descriptionHi : c.descriptionEn}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

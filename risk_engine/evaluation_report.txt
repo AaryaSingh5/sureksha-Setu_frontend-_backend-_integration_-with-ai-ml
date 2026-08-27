@@ -1,0 +1,23 @@
+==============================================================
+          TOURIST ANOMALY DETECTOR MODEL EVALUATION REPORT
+Generated at: 2026-08-27 05:51:32 UTC
+==============================================================
+
+Model File: model_v1.pkl
+Evaluation dataset size: 200 location points
+Mean Anomaly Decision Value: 0.5167
+Maximum Anomaly Decision Value: 0.6365
+
+--- FEEDBACK LOOP METRICS & AUDITS ---
+Authority Feedback Logs: 0 registered events
+  - Confirmed Incidents: 0
+  - False Positives (Dismissed): 0
+
+--- PILOT DATA QUALITY LIMITATIONS ---
+WARNING: The confirmed incident volume in the feedback table is too low
+to compute a statistically significant validation of precision and recall.
+No synthetic ground truth or dummy labels were substituted. Model evaluation
+is currently based on unsupervised anomaly distribution thresholds.
+Action item: Calibrate thresholds as historical feedback volume increases.
+
+==============================================================
