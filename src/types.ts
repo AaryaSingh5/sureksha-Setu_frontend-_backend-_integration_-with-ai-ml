@@ -65,6 +65,14 @@ export interface TouristProfile {
   emergency_contact?: string;
   preferred_language?: string;
   created_at?: string;
+
+  // OCR Document & Biometric Face Verification
+  documentVerificationStatus?: 'VERIFIED' | 'PENDING' | 'REJECTED';
+  verifiedDocumentType?: string;
+  maskedDocumentNumber?: string;
+  faceMatchStatus?: string;
+  verificationId?: string;
+  didHash?: string;
 }
 
 export interface SOSIncident {

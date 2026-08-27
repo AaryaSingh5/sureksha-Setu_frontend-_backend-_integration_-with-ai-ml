@@ -8,10 +8,20 @@ import risk_combiner
 import anomaly_detection
 import false_alarm_reducer
 import regional_context
+from document_verification.router import router as verification_router
+from document_verification.face_match_router import router as face_match_router
+from document_verification.config import (
+    ALLOWED_EXTENSIONS,
+    ALLOWED_MIME_TYPES,
+    MAX_UPLOAD_SIZE_BYTES,
+    MIN_CONFIDENCE_FOR_AUTO_VERIFY,
+    MIN_CONFIDENCE_FOR_REVIEW,
+    OCR_MODE,
+)
 
 app = FastAPI(
-    title="Suraksha Setu Context-Aware Risk Scoring Engine",
-    description="FastAPI service computing real-time risk scores and detecting anomalies for tourist safety.",
+    title="Suraksha Setu Context-Aware Risk Scoring & Document Verification Engine",
+    description="FastAPI service computing real-time risk scores, detecting anomalies, and performing AI/OCR Document & Biometric Face Verification for tourist safety.",
     version="1.0.0"
 )
 
@@ -23,6 +33,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount Document & Face Verification routers
+app.include_router(verification_router, prefix="/api/v1/verifications")
+app.include_router(face_match_router, prefix="/api/v1/verifications")
+
 
 class LocationPing(BaseModel):
     tourist_id: str

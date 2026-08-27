@@ -2,6 +2,7 @@
     "model_version": "v1.1.0",
     "training_date": "2026-08-27 05:51:09 UTC",
     "model_type": "Isolation Forest (unsupervised)",
+
     "features": [
         "latitude",
         "longitude",

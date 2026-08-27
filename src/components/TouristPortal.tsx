@@ -46,7 +46,9 @@ import {
   RotateCcw,
   Sparkles,
   Bluetooth,
+  Lock,
 } from 'lucide-react';
+
 import { Language, TouristProfile, ItineraryItem, ChatMessage, BroadcastAlert, GeoFenceZone, SosStepState } from '../types';
 import { i18n } from '../data/i18n';
 import { POLICE_STATIONS, INITIAL_TOURISTS, INITIAL_BROADCASTS, MOCK_GEOFENCE_ZONES } from '../data/mockData';
@@ -61,6 +63,9 @@ import {
   fetchLiveGeofencesAPI,
   type LiveGeofenceZoneRaw
 } from '../lib/api';
+import { IdentityVerification } from './IdentityVerification';
+import type { DocumentConfirmResponse, DocumentUploadResponse } from '../lib/verificationApi';
+
 import {
   globalSOSRouter,
   initBluetoothMeshListener,
@@ -105,7 +110,6 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showDigitalPassModal, setShowDigitalPassModal] = useState(false);
-  const [showDigiLockerModal, setShowDigiLockerModal] = useState(false);
   const [showContactsDrawer, setShowContactsDrawer] = useState(false);
   const [showAddItineraryModal, setShowAddItineraryModal] = useState(false);
 
@@ -120,10 +124,20 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   const [emergencyRelation, setEmergencyRelation] = useState('Father');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('+91 98765 00000');
 
-  // DigiLocker States
-  const [digiLockerVerified, setDigiLockerVerified] = useState(false);
-  const [digiLockerLoading, setDigiLockerLoading] = useState(false);
-  const [digiLockerStep, setDigiLockerStep] = useState<'connect' | 'loading' | 'fetched'>('connect');
+  // OCR Document & Biometric Verification States
+  const [showDocVerificationModal, setShowDocVerificationModal] = useState(false);
+  const [docVerificationCompleted, setDocVerificationCompleted] = useState(false);
+  const [docVerificationData, setDocVerificationData] = useState<{
+    verificationId?: string;
+
+    documentType?: string;
+    maskedDocNumber?: string;
+    fullName?: string;
+    nationality?: string;
+    dob?: string;
+    did?: string;
+  } | null>(null);
+
 
   // Sign In Form States
   const [signinTouristId, setSigninTouristId] = useState('TR-88219');
@@ -611,28 +625,60 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
     };
   }, [countdown, currentAddress, onTriggerSos, authenticatedUser, lat, lng, activeGeoFenceZone.name]);
 
-  // DigiLocker Connect Simulation
-  const handleConnectDigiLocker = () => {
-    setDigiLockerLoading(true);
-    setDigiLockerStep('loading');
-    setTimeout(() => {
-      setDigiLockerLoading(false);
-      setDigiLockerStep('fetched');
-    }, 1500);
-  };
+  // OCR Document & Biometric Verification Handler
+  const handleDocVerificationSuccess = (
+    result: DocumentConfirmResponse,
+    extracted?: DocumentUploadResponse
+  ) => {
+    setDocVerificationCompleted(true);
+    setShowDocVerificationModal(false);
+    if (extracted?.extracted) {
+      if (extracted.extracted.full_name?.value) {
+        setFullName(extracted.extracted.full_name.value);
+      }
+      setDocVerificationData({
+        verificationId: result.verification_id,
+        documentType: extracted.document_type,
+        maskedDocNumber: extracted.extracted.document_number?.value || undefined,
+        fullName: extracted.extracted.full_name?.value || undefined,
+        nationality: extracted.extracted.nationality?.value || undefined,
+        dob: extracted.extracted.date_of_birth?.value || undefined,
+        did: result.did || undefined
+      });
+    }
 
-  const handleConfirmDigiLocker = () => {
-    setDigiLockerVerified(true);
-    setShowDigiLockerModal(false);
+    if (authenticatedUser) {
+      setAuthenticatedUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              documentVerificationStatus: 'VERIFIED',
+              verifiedDocumentType: extracted?.document_type || 'PASSPORT',
+              maskedDocumentNumber: extracted?.extracted.document_number?.value || undefined,
+              kyc_verified: true,
+              verificationId: result.verification_id,
+              didHash: result.did || undefined,
+              name: extracted?.extracted.full_name?.value || prev.name,
+              nationality: extracted?.extracted.nationality?.value || prev.nationality
+            }
+          : null
+      );
+    }
   };
 
   // Submit Sign Up Form
   const handleSignUpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!docVerificationCompleted) {
+      alert('⚠️ Identity Verification Required: Please complete the AI Document & Biometric Face Verification before proceeding with Sign Up.');
+      setShowDocVerificationModal(true);
+      return;
+    }
     setOtpPendingAction('signup');
     setOtpError('');
     setShowOtpModal(true);
   };
+
 
   // Submit Sign In Form
   const handleSignInSubmit = (e: React.FormEvent) => {
@@ -663,8 +709,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       const newProfile: TouristProfile = {
         id: newTouristId,
         name: fullName || 'Elena Rostova',
-        nationality: 'India',
-        passportHash: digiLockerVerified ? 'Aadhaar XXXX-XXXX-4912' : 'PASSPORT-VERIFIED',
+        nationality: docVerificationData?.nationality || 'India',
+        passportHash: docVerificationCompleted
+          ? `${docVerificationData?.documentType || 'ID'}: ${docVerificationData?.maskedDocNumber || 'VERIFIED'}`
+          : 'PASSPORT-VERIFIED',
         photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
         phone: phone || '+91 98765 43210',
         emergencyContact: `${emergencyContactName || 'Carlos Rostova'} (${emergencyRelation || 'Father'})`,
@@ -681,8 +729,13 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
         digitalBandId: `BAND-${randomSuffix}`,
         pastSOSHistory: [],
         email: email,
-        digiLockerVerified: digiLockerVerified,
-        locationConsent: 'granted'
+        locationConsent: 'granted',
+        documentVerificationStatus: docVerificationCompleted ? 'VERIFIED' : undefined,
+        verifiedDocumentType: docVerificationData?.documentType,
+        maskedDocumentNumber: docVerificationData?.maskedDocNumber,
+        verificationId: docVerificationData?.verificationId,
+        kyc_verified: docVerificationCompleted,
+        didHash: docVerificationData?.did
       };
 
       setAuthenticatedUser(newProfile);
@@ -690,6 +743,8 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
       if (onRegisterTourist) {
         onRegisterTourist(newProfile);
       }
+
+
 
       setShowDigitalPassModal(true);
 
@@ -1179,39 +1234,40 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
             /* TAB 2: SIGN UP FORM */
             <form onSubmit={handleSignUpSubmit} className="space-y-5">
 
-              {/* DigiLocker Section */}
-              <div className="p-4 bg-emerald-50/80 rounded-2xl border-2 border-emerald-300/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* AI OCR & Biometric Verification Section */}
+              <div className="p-4 bg-indigo-50/90 rounded-2xl border-2 border-indigo-300/90 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-xl bg-white border border-emerald-300 flex items-center justify-center text-[#2F4538] shadow-sm flex-shrink-0">
-                    <FileCheck className="w-6 h-6 text-[#2F4538]" />
+                  <div className="w-12 h-12 rounded-xl bg-white border border-indigo-300 flex items-center justify-center text-indigo-700 shadow-sm flex-shrink-0">
+                    <ShieldCheck className="w-6 h-6 text-indigo-700" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-black text-slate-900">
-                        Government DigiLocker e-KYC Integration
+                        AI Document & Biometric Face Verification
                       </span>
-                      {digiLockerVerified && (
-                        <span className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-extrabold flex items-center gap-1">
+                      {docVerificationCompleted && (
+                        <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-extrabold flex items-center gap-1">
                           <Check className="w-3 h-3" /> VERIFIED
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      Skip manual uploads. Auto-retrieve Aadhaar / Passport verified credentials & photo.
+                      Upload Passport, DL, Voter ID or Aadhaar. Auto-extract fields & verify live facial liveness.
                     </p>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setShowDigiLockerModal(true)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow flex items-center gap-2 whitespace-nowrap ${digiLockerVerified
-                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200'
-                      : 'bg-[#2F4538] hover:bg-emerald-800 text-white'
-                    }`}
+                  onClick={() => setShowDocVerificationModal(true)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow flex items-center gap-2 whitespace-nowrap ${
+                    docVerificationCompleted
+                      ? 'bg-indigo-100 text-indigo-900 border border-indigo-300 hover:bg-indigo-200'
+                      : 'bg-indigo-700 hover:bg-indigo-800 text-white'
+                  }`}
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>{digiLockerVerified ? 'DigiLocker Verified ✅' : t.connectDigiLockerBtn}</span>
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>{docVerificationCompleted ? 'ID & Face Verified ✅' : 'Verify ID & Face (AI/OCR)'}</span>
                 </button>
               </div>
 
@@ -1306,15 +1362,36 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
               </div>
 
               {/* Submit Button */}
-              <div className="pt-4">
+              <div className="pt-4 space-y-2">
+                {!docVerificationCompleted && (
+                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 font-bold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>Identity Verification is required before you can complete registration. Click <strong>"Verify ID & Face (AI/OCR)"</strong> above.</span>
+                  </div>
+                )}
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
+                  disabled={!docVerificationCompleted}
+                  className={`w-full py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 ${
+                    docVerificationCompleted
+                      ? 'bg-[#1B2A4A] hover:bg-[#071933] text-white cursor-pointer'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                  }`}
                 >
-                  <Smartphone className="w-5 h-5 text-[#E8935C]" />
-                  <span>Proceed to Mobile OTP Verification</span>
+                  {docVerificationCompleted ? (
+                    <>
+                      <Smartphone className="w-5 h-5 text-[#E8935C]" />
+                      <span>Proceed to Mobile OTP Verification</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4 text-slate-400" />
+                      <span>Verify ID & Biometrics to Unlock Sign Up</span>
+                    </>
+                  )}
                 </button>
               </div>
+
 
             </form>
           )}
@@ -2714,86 +2791,7 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
         </div>
       )}
 
-      {/* MODAL 1: DIGILOCKER E-KYC CONNECT MODAL */}
-      {showDigiLockerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border-2 border-[#2F4538] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative text-left">
-            <button
-              onClick={() => setShowDigiLockerModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-[#2F4538] flex items-center justify-center text-[#2F4538] shadow-sm">
-                <FileCheck className="w-7 h-7 text-[#2F4538]" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-900">
-                  DigiLocker Identity OAuth
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Government of India National e-Governance Division (NeGD)
-                </p>
-              </div>
-            </div>
-
-            {digiLockerStep === 'connect' && (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  By clicking below, you grant Suraksha Setu one-time OAuth consent to retrieve your verified e-KYC credentials.
-                </p>
-
-                <button
-                  onClick={handleConnectDigiLocker}
-                  className="w-full py-3.5 rounded-xl bg-[#2F4538] hover:bg-emerald-800 text-white font-black text-sm transition shadow-lg flex items-center justify-center gap-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Authenticate & Fetch DigiLocker Records</span>
-                </button>
-              </div>
-            )}
-
-            {digiLockerStep === 'loading' && (
-              <div className="py-12 text-center space-y-4">
-                <RefreshCw className="w-10 h-10 text-[#2F4538] animate-spin mx-auto" />
-                <p className="text-sm font-bold text-slate-800">
-                  Connecting to Government DigiLocker Identity Vault...
-                </p>
-              </div>
-            )}
-
-            {digiLockerStep === 'fetched' && (
-              <div className="space-y-5 animate-fade-in">
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-300 flex items-center space-x-4">
-                  <img
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"
-                    alt="Verified Photo"
-                    className="w-16 h-16 rounded-2xl object-cover border-2 border-[#2F4538]"
-                  />
-                  <div>
-                    <div className="px-2 py-0.5 rounded bg-[#2F4538] text-white text-[10px] font-black inline-block mb-1">
-                      DIGILOCKER VERIFIED E-KYC
-                    </div>
-                    <div className="text-sm font-extrabold text-slate-900">{fullName || 'Elena Rostova'}</div>
-                    <div className="text-xs text-slate-600 font-mono">Aadhaar No: XXXX-XXXX-4912</div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleConfirmDigiLocker}
-                  className="w-full py-3.5 rounded-xl bg-[#1B2A4A] hover:bg-[#071933] text-white font-black text-sm transition shadow-lg"
-                >
-                  Attach Verified DigiLocker Badge
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: OTP MODAL */}
+      {/* MODAL 1: OTP MODAL */}
       {showOtpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white border-2 border-[#1B2A4A] rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-left">
@@ -2906,6 +2904,28 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   <span>{copySuccess ? 'Copied!' : 'Copy ID'}</span>
                 </button>
               </div>
+
+              {/* Document & Biometric Verification Indicator */}
+              {authenticatedUser.documentVerificationStatus === 'VERIFIED' ? (
+                <div className="mt-3 flex items-center justify-between text-[11px] bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 px-3 py-1.5 rounded-xl font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>AI/OCR Verified • {authenticatedUser.verifiedDocumentType || 'ID'}</span>
+                  </span>
+                  {authenticatedUser.maskedDocumentNumber && (
+                    <span className="font-mono text-[10px] text-emerald-200">{authenticatedUser.maskedDocumentNumber}</span>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowDocVerificationModal(true)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 text-xs bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-400/50 text-indigo-100 px-3 py-2 rounded-xl font-bold transition"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Attach AI Document & Biometric Face Verification</span>
+                </button>
+              )}
             </div>
 
             <div className="mt-6 space-y-3">
@@ -3019,11 +3039,13 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 font-medium mt-0.5">{authenticatedUser.phone}</div>
-                {authenticatedUser.digiLockerVerified && (
-                  <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">
-                    <ShieldCheck className="w-3 h-3 text-blue-600" /> DigiLocker e-KYC Verified
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {authenticatedUser.documentVerificationStatus === 'VERIFIED' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200">
+                      <ShieldCheck className="w-3 h-3 text-indigo-600" /> AI OCR & Biometric Verified ({authenticatedUser.verifiedDocumentType || 'ID'})
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -3042,8 +3064,10 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                 <div className="font-bold text-slate-900 text-xs mt-0.5">{authenticatedUser.emergencyContact}</div>
               </div>
               <div>
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase">Trip Status</span>
-                <div className="font-bold text-slate-900 text-xs mt-0.5">Active Verified Tour</div>
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase">Verification Status</span>
+                <div className="font-bold text-emerald-700 text-xs mt-0.5">
+                  {authenticatedUser.documentVerificationStatus === 'VERIFIED' ? 'AI & Biometric Verified ✅' : 'Standard Registration'}
+                </div>
               </div>
             </div>
 
@@ -3076,6 +3100,19 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
             {/* Action Buttons */}
             <div className="space-y-2.5 pt-2">
+              {authenticatedUser.documentVerificationStatus !== 'VERIFIED' && (
+                <button
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setShowDocVerificationModal(true);
+                  }}
+                  className="w-full py-3 px-4 bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>Verify Identity Document & Face Biometrics</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setShowProfileModal(false);
@@ -3110,6 +3147,20 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
         </div>
       )}
 
+      {/* MODAL 6: OCR IDENTITY & BIOMETRIC VERIFICATION MODAL */}
+      {showDocVerificationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in overflow-y-auto max-h-screen py-8">
+          <div className="relative w-full max-w-2xl my-auto">
+            <IdentityVerification
+              touristId={authenticatedUser?.id}
+              onVerificationComplete={handleDocVerificationSuccess}
+              onClose={() => setShowDocVerificationModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+
