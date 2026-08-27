@@ -471,9 +471,19 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
                         <div className="flex justify-between items-center py-1 border-t border-slate-100">
                           <span className="text-slate-500 font-medium">Verification Document</span>
                           <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
-                            {docType}
+                            {selectedTourist.verifiedDocumentType || docType}
                           </span>
                         </div>
+
+                        {selectedTourist.maskedDocumentNumber && (
+                          <div className="flex justify-between items-center py-1 border-t border-slate-100">
+                            <span className="text-slate-500 font-medium">Masked Doc Number</span>
+                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                              {selectedTourist.maskedDocumentNumber}
+                            </span>
+                          </div>
+                        )}
+
 
                         <div className="flex justify-between items-center py-1 border-t border-slate-100">
                           <span className="text-slate-500 font-medium">Decentralized ID (DID)</span>
