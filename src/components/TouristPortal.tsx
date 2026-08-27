@@ -713,15 +713,11 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   // Submit Sign Up Form
   const handleSignUpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docVerificationCompleted) {
-      alert('⚠️ Identity Verification Required: Please complete the AI Document & Biometric Face Verification before proceeding with Sign Up.');
-      setShowDocVerificationModal(true);
-      return;
-    }
     setOtpPendingAction('signup');
     setOtpError('');
     setShowOtpModal(true);
   };
+
 
 
   // Submit Sign In Form
@@ -1289,9 +1285,13 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                       <span className="text-xs font-black text-slate-900">
                         AI Document & Biometric Face Verification
                       </span>
-                      {docVerificationCompleted && (
+                      {docVerificationCompleted ? (
                         <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-extrabold flex items-center gap-1">
                           <Check className="w-3 h-3" /> VERIFIED
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-extrabold border border-indigo-200">
+                          Optional e-KYC
                         </span>
                       )}
                     </div>
@@ -1407,34 +1407,15 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
 
               {/* Submit Button */}
               <div className="pt-4 space-y-2">
-                {!docVerificationCompleted && (
-                  <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 font-bold flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span>Identity Verification is required before you can complete registration. Click <strong>"Verify ID & Face (AI/OCR)"</strong> above.</span>
-                  </div>
-                )}
                 <button
                   type="submit"
-                  disabled={!docVerificationCompleted}
-                  className={`w-full py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 ${
-                    docVerificationCompleted
-                      ? 'bg-[#1B2A4A] hover:bg-[#071933] text-white cursor-pointer'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                  }`}
+                  className="w-full py-3.5 rounded-xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 bg-[#1B2A4A] hover:bg-[#071933] text-white cursor-pointer"
                 >
-                  {docVerificationCompleted ? (
-                    <>
-                      <Smartphone className="w-5 h-5 text-[#E8935C]" />
-                      <span>Proceed to Mobile OTP Verification</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4 text-slate-400" />
-                      <span>Verify ID & Biometrics to Unlock Sign Up</span>
-                    </>
-                  )}
+                  <Smartphone className="w-5 h-5 text-[#E8935C]" />
+                  <span>Proceed to Mobile OTP Verification & Create Tourist ID</span>
                 </button>
               </div>
+
 
 
             </form>
