@@ -80,10 +80,10 @@ async function main() {
     }
 
     // Start Uvicorn
-    console.log('[RISK ENGINE] Starting risk engine on http://127.0.0.1:8001 ...');
+    console.log('[RISK ENGINE] Starting risk engine on http://0.0.0.0:8001 ...');
     const uvicornProcess = spawn(
       venvPythonPath,
-      ['-m', 'uvicorn', 'main:app', '--port', '8001', '--host', '127.0.0.1'],
+      ['-m', 'uvicorn', 'main:app', '--port', '8001', '--host', '0.0.0.0'],
       { cwd: riskEngineDir, stdio: 'inherit', shell: false }
     );
 

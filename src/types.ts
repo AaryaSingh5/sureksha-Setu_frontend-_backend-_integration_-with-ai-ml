@@ -19,7 +19,9 @@ export type AnomalyType =
   | 'Off-Route Signal Loss'
   | 'Rapid Density Spike'
   | 'Late-Night Isolated Signal'
-  | 'Hazard Zone Entry';
+  | 'Hazard Zone Entry'
+  | 'TRAIL_DEVIATION'
+  | 'ROUTE_DEVIATION';
 
 export interface LocationPoint {
   lat: number;

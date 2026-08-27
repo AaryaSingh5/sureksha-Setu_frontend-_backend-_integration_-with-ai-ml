@@ -2,7 +2,9 @@ import { Capacitor } from "@capacitor/core";
 import { SOSRecord, getQueuedSOSRecords, updateSOSRecordStatus } from "./db";
 import {
   BACKEND_PORT,
+  RISK_ENGINE_PORT,
   DEFAULT_NATIVE_API_BASE_URL,
+  DEFAULT_NATIVE_RISK_ENGINE_BASE_URL,
   DEFAULT_RISK_ENGINE_BASE_URL
 } from "../config";
 import {
@@ -404,7 +406,41 @@ export async function verifyAuditChainAPI(): Promise<{
 // ----------------------------------------------------
 
 export function getRiskEngineBaseUrl(): string {
+  // Robust native platform detection
+  const isNative =
+    Capacitor.isNativePlatform() ||
+    (typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.())) ||
+    (typeof window !== 'undefined' && (window as any).Capacitor?.platform === 'android');
+
+  // (a) LocalStorage override takes highest priority if explicitly set
+  if (typeof localStorage !== 'undefined') {
+    const custom = localStorage.getItem('sos_risk_engine_url');
+    if (custom && custom.trim()) {
+      return custom.trim();
+    }
+  }
+
+  // (b) Native platform check MUST take priority BEFORE hostname check
+  if (isNative) {
+    return DEFAULT_NATIVE_RISK_ENGINE_BASE_URL;
+  }
+
+  // (c) Genuinely a desktop/laptop web browser (Authority Dashboard)
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:${RISK_ENGINE_PORT}`;
+  }
+
   return DEFAULT_RISK_ENGINE_BASE_URL;
+}
+
+export function setCustomRiskEngineBaseUrl(url?: string): void {
+  if (typeof localStorage !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('sos_risk_engine_url', url.trim());
+    } else {
+      localStorage.removeItem('sos_risk_engine_url');
+    }
+  }
 }
 export async function sendLocationPingAPI(ping: {
   tourist_id: string;

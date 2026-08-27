@@ -16,7 +16,7 @@
  */
 
 // 🌐 The Primary LAN IPv4 address of the laptop hosting the Express backend server
-export const BACKEND_LAN_IP = '10.0.96.233';
+export const BACKEND_LAN_IP = '10.148.121.21';
 
 // 🔌 Service Ports
 export const BACKEND_PORT = 8080;
@@ -25,6 +25,7 @@ export const FRONTEND_PORT = 3000;
 
 // 🔗 Derived Default API Base URLs
 export const DEFAULT_NATIVE_API_BASE_URL = `http://${BACKEND_LAN_IP}:${BACKEND_PORT}/api/v1`;
+export const DEFAULT_NATIVE_RISK_ENGINE_BASE_URL = `http://${BACKEND_LAN_IP}:${RISK_ENGINE_PORT}`;
 export const DEFAULT_RISK_ENGINE_BASE_URL = `http://localhost:${RISK_ENGINE_PORT}`;
 
 // 🗺️ Google Maps Configuration
