@@ -192,6 +192,8 @@ router.patch('/:id', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
 // POST /api/v1/tourists/:id/telemetry-access - Secure audit-logged telemetry access
 router.post('/:id/telemetry-access', async (req, res) => {
   try {
