@@ -13,16 +13,72 @@ import {
 
 let isSyncing = false;
 
-export function getApiBaseUrl(): string {
-  return localStorage.getItem("sos_api_base_url") || "http://localhost:8080/api/v1";
-}
 
+export function getApiBaseUrl(): string {
+  if (typeof localStorage !== 'undefined') {
+    const custom = localStorage.getItem('sos_api_base_url');
+    if (custom) {
+      let upgraded = custom;
+      if (upgraded.includes(':8000/')) {
+        upgraded = upgraded.replace(':8000/', ':8080/');
+      }
+      if (upgraded.includes('192.168.1.103')) {
+        upgraded = upgraded.replace('192.168.1.103', '192.168.1.104');
+      }
+      if (upgraded !== custom) {
+        localStorage.setItem('sos_api_base_url', upgraded);
+      }
+      return upgraded;
+    }
+  }
+
+  // If running inside Capacitor Native Android App on phone, use Laptop LAN IP
+  const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+  if (isNative) {
+    return 'http://192.168.1.104:8080/api/v1';
+  }
+
+  // If running in browser (Laptop Dashboard / Web client), use current hostname on port 8080
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:8080/api/v1`;
+  }
+
+  return 'http://192.168.1.104:8080/api/v1';
+}
 export function getAuthToken(): string {
-  return localStorage.getItem("sos_auth_token") || "";
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem("sos_auth_token") || "";
+  }
+  return "";
 }
 
 export function getTouristId(): string {
-  return localStorage.getItem("sos_tourist_id") || "eee6684b-dee5-4471-bfd0-00b9a7ee9b66";
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem("sos_tourist_id") || "eee6684b-dee5-4471-bfd0-00b9a7ee9b66";
+  }
+  return "eee6684b-dee5-4471-bfd0-00b9a7ee9b66";
+}
+
+/**
+ * Actively checks whether the backend health endpoint is reachable with a strict bounded timeout.
+ */
+export async function checkBackendReachability(timeoutMs = 2000): Promise<boolean> {
+  const baseUrl = getApiBaseUrl();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${baseUrl}/health`, {
+      method: "GET",
+      signal: controller.signal,
+      cache: "no-store"
+    });
+    clearTimeout(timeoutId);
+    return res.ok;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    return false;
+  }
 }
 
 // ----------------------------------------------------
@@ -113,40 +169,69 @@ export async function submitSOSOnline(sosRecord: SOSRecord): Promise<any> {
 
   const payload = {
     tourist_id: touristId,
+    tourist_name: sosRecord.tourist_name || undefined,
+    tourist_phone: sosRecord.tourist_phone || undefined,
     latitude: sosRecord.latitude !== undefined ? sosRecord.latitude : null,
     longitude: sosRecord.longitude !== undefined ? sosRecord.longitude : null,
     description: sosRecord.description || `SOS Emergency Alert (${sosRecord.location_source || "live"})`,
     severity: sosRecord.severity || "HIGH",
-    trigger_source: "APP"
+    trigger_source: sosRecord.is_relayed ? "BLE_MESH_RELAY" : "APP",
+    client_generated_id: sosRecord.local_sos_id,
+    hop_count: sosRecord.hop_count ?? 0,
+    max_hops: sosRecord.max_hops ?? 5,
+    hop_path: sosRecord.hop_path || [],
+    origin_device_id: sosRecord.origin_device_id
   };
 
-  const response = await fetch(`${baseUrl}/sos`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(payload)
-  });
+  console.log(`[SOS] Network upload attempted: ${baseUrl}/sos for SOS #${sosRecord.local_sos_id || 'new'}`);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Server returned status ${response.status}: ${errText}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 4000); // 4-second bounded timeout
+
+  try {
+    const response = await fetch(`${baseUrl}/sos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server returned status ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    console.log(`[SOS] Network upload succeeded: Incident #${data.incident_id || data.sos_id}`);
+    return data;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      console.warn(`[SOS] Network timeout/failure: HTTP request to ${baseUrl}/sos timed out after 4000ms`);
+      throw new Error(`Network timeout (4s exceeded) reaching ${baseUrl}/sos`);
+    }
+    console.warn(`[SOS] Network timeout/failure: ${err.message}`);
+    throw err;
   }
-
-  return await response.json();
 }
 
 export async function syncQueuedSOS(
   onProgressCallback?: (status: string, record: SOSRecord, serverRes?: any) => void
 ): Promise<{ count: number; synced: number; error?: string }> {
   if (isSyncing) {
-    console.log("Sync process already in progress. Skipping duplicate invocation.");
     return { count: 0, synced: 0 };
   }
 
-  if (!navigator.onLine) {
-    console.log("Device is offline. Cannot perform synchronization.");
+  // Actively test if backend is reachable before attempting sync to avoid noisy failed fetch logs
+  const isReachable = await checkBackendReachability(1500);
+  if (!isReachable) {
     return { count: 0, synced: 0, error: "Offline" };
   }
 
@@ -183,7 +268,7 @@ export async function syncQueuedSOS(
       } catch (err: any) {
         console.error(`Failed to synchronize SOS record ${record.local_sos_id}:`, err);
         if (record.local_sos_id) {
-          await updateSOSRecordStatus(record.local_sos_id, "QUEUED_OFFLINE");
+          await updateSOSRecordStatus(record.local_sos_id, record.is_relayed ? "RELAYED_OFFLINE" : "QUEUED_OFFLINE");
         }
         if (onProgressCallback) onProgressCallback("FAILED", record, err);
       }
@@ -268,6 +353,19 @@ export async function createAuditLogAPI(log: Partial<AuditLog>): Promise<AuditLo
     body: JSON.stringify(log)
   });
   if (!res.ok) throw new Error(`Failed to create audit log (${res.status})`);
+  return await res.json();
+}
+
+export async function verifyAuditChainAPI(): Promise<{
+  valid: boolean;
+  brokenAtLogId?: string;
+  message?: string;
+  totalEntries?: number;
+  latestHash?: string;
+}> {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}/audit-logs/verify`);
+  if (!res.ok) throw new Error(`Failed to verify audit chain: ${res.status}`);
   return await res.json();
 }
 

@@ -183,7 +183,9 @@ export const CrowdHeatmap: React.FC<CrowdHeatmapProps> = ({ onAddItineraryDestin
     // Search query match (searches across name, region, notice, and suggested alternative)
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
-      const searchableText = `${c.name} ${c.region} ${c.statusNotice} ${c.suggestedAlternative.name} ${c.suggestedAlternative.description}`.toLowerCase();
+      const altName = c.suggestedAlternative?.name || '';
+      const altDesc = c.suggestedAlternative?.description || '';
+      const searchableText = `${c.name || ''} ${c.region || ''} ${c.statusNotice || ''} ${altName} ${altDesc}`.toLowerCase();
       
       const terms = q.split(/\s+/).filter(Boolean);
       const matchesSearch = terms.every((term) => searchableText.includes(term));

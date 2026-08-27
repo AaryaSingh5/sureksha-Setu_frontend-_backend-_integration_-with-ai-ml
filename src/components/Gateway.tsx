@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import {
+  ShieldAlert,
+  UserCheck,
+  Smartphone,
   Lock,
   ArrowRight,
-  Smartphone,
+  Shield,
   KeyRound,
+  Radio,
+  Sparkles,
+  MapPin,
+  CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
 import { Language, UserRole } from '../types';
@@ -11,14 +18,13 @@ import { i18n } from '../data/i18n';
 
 interface GatewayProps {
   language: Language;
-  onLanguageChange: (lang: Language) => void;
+  onLanguageChange?: (lang: Language) => void;
   onSelectRole: (role: UserRole) => void;
   onAuthenticateAuthority: (badgeId: string, otp: string) => boolean;
 }
 
 export const Gateway: React.FC<GatewayProps> = ({
   language,
-  onLanguageChange,
   onSelectRole,
   onAuthenticateAuthority
 }) => {
@@ -43,238 +49,210 @@ export const Gateway: React.FC<GatewayProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1B2A4A] flex flex-col justify-between font-sans relative">
-      
-      {/* UNDERSTATED STATE TOP BAR */}
-      <header className="w-full border-b border-[#7C93A8]/20 py-3 bg-[#FAF7F2] z-20">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {/* Clean minimal state design logo representation */}
-            <svg className="w-4 h-4 text-[#1B2A4A] opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
-            <span className="text-[10px] tracking-[0.25em] font-semibold text-[#7C93A8] uppercase">
-              Himachal Pradesh State
-            </span>
-          </div>
-          <div className="flex items-center space-x-4 text-[10px] tracking-[0.15em] text-[#7C93A8]/80 font-semibold uppercase">
-            <span>Govt of India</span>
-            <span className="text-[#7C93A8]/30">|</span>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => onLanguageChange('en')} 
-                className={`hover:text-[#1B2A4A] transition-colors cursor-pointer ${language === 'en' ? 'font-bold text-[#1B2A4A]' : 'text-[#7C93A8]'}`}
-              >
-                EN
-              </button>
-              <span>/</span>
-              <button 
-                onClick={() => onLanguageChange('hi')} 
-                className={`hover:text-[#1B2A4A] transition-colors cursor-pointer ${language === 'hi' ? 'font-bold text-[#1B2A4A]' : 'text-[#7C93A8]'}`}
-              >
-                हिंदी
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-[calc(100vh-80px)] bg-[#F8FAFC] text-slate-900 flex flex-col justify-between relative overflow-hidden">
+      {/* Background Decorative Grid */}
+      <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-70 pointer-events-none"></div>
 
-      {/* ATMOSPHERIC HERO SECTION */}
-      <section className="relative w-full h-[65vh] md:h-[75vh] overflow-hidden flex items-end">
-        {/* Full-bleed background image with slow drift */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <img 
-            src="/himalayan_dawn.jpg" 
-            alt="Hot air balloons over misty Himalayan forest ridges at sunrise" 
-            className="w-full h-full object-cover select-none pointer-events-none scale-105 animate-slow-drift"
-          />
+      {/* Top Banner Accent */}
+      <div className="relative max-w-6xl mx-auto px-4 py-12 sm:py-16 text-center z-10">
+
+        {/* Emblem & Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#FF9933] text-[#0B2447] text-xs font-bold uppercase tracking-wider mb-6 shadow-sm">
+          <ShieldAlert className="w-4 h-4 text-[#FF9933]" />
+          <span>{t.gatewayTitle} • Govt. of India</span>
         </div>
 
-        {/* Dark gradient overlay at the bottom third only */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B2A4A]/90 via-[#1B2A4A]/40 to-transparent z-10"></div>
+        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-[#0B2447] max-w-4xl mx-auto leading-tight uppercase">
+          SURAKSHA <span className="text-[#FF9933]">SETU</span>
+        </h1>
 
-        {/* Headline low-left inside overlay zone */}
-        <div className="relative max-w-6xl w-full mx-auto px-6 pb-12 sm:pb-16 z-20 text-left">
-          <h1 className="font-editorial text-5xl md:text-7xl font-light text-white tracking-tight leading-none mb-4">
-            Suraksha Setu
-          </h1>
-          <p className="text-white/80 font-light text-sm md:text-base max-w-lg leading-relaxed">
-            Emergency response and safety monitoring for travelers across Himachal Pradesh.
-          </p>
-        </div>
-      </section>
+        <p className="mt-4 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed font-medium">
+          {t.gatewaySub}
+        </p>
 
-      {/* TWO PATHS - UNEQUAL VISUAL WEIGHT */}
-      <main className="max-w-6xl w-full mx-auto px-6 py-16 md:py-24 grid grid-cols-1 md:grid-cols-5 gap-12 items-start flex-1">
-        
-        {/* CARD 1: Travelers - Spans 3 columns (Primary, warm) */}
-        <div className="md:col-span-3 bg-white border border-[#E8935C]/35 rounded p-8 md:p-10 flex flex-col justify-between min-h-[380px] transition-colors duration-300">
-          <div>
-            <span className="text-[10px] tracking-[0.25em] font-semibold text-[#E8935C] uppercase block mb-3">
-              Safety Portal
-            </span>
-            <h2 className="font-editorial text-3xl md:text-4xl text-[#1B2A4A] font-normal leading-tight mb-6">
-              For Travelers
-            </h2>
-            
-            <p className="text-slate-600 font-light text-base leading-relaxed mb-8">
-              Your safety is our priority as you explore the serene valleys of Himachal Pradesh. Get instant location tracking, offline SOS triggers, and helpline contacts.
-            </p>
+        {/* 2 Main Selection Cards */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm text-[#1B2A4A] mb-8 font-light">
-              <div className="flex items-start space-x-3">
-                <Smartphone className="w-4 h-4 text-[#E8935C] mt-1 flex-shrink-0" />
-                <span>
-                  <strong>Instant SOS Trigger</strong>
-                  <span className="text-slate-500 text-xs block mt-0.5">5-second cancelable panic signal to authorities</span>
-                </span>
-              </div>
-              <div className="flex items-start space-x-3">
-                <Smartphone className="w-4 h-4 text-[#E8935C] mt-1 flex-shrink-0" />
-                <span>
-                  <strong>Live Location Beacon</strong>
-                  <span className="text-slate-500 text-xs block mt-0.5">Continuous encrypted coordination telemetry</span>
-                </span>
-              </div>
-              <div className="flex items-start space-x-3 sm:col-span-2">
-                <Smartphone className="w-4 h-4 text-[#E8935C] mt-1 flex-shrink-0" />
-                <span>
-                  <strong>Emergency Helplines</strong>
-                  <span className="text-slate-500 text-xs block mt-0.5">Direct lines to state protection and hospitals (112 / 100) working offline</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
+          {/* TOURIST CARD */}
+          <div
             onClick={() => onSelectRole('tourist')}
-            className="self-start px-8 py-3.5 bg-[#1B2A4A] hover:bg-[#E8935C] text-[#FAF7F2] hover:text-[#1B2A4A] text-sm font-medium tracking-wide rounded transition-all duration-300 flex items-center space-x-2 cursor-pointer"
+            className="group relative bg-white rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-[#138808] transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden"
           >
-            <span>Open Safety App</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#138808]/10 rounded-full blur-2xl group-hover:bg-[#138808]/20 transition-all"></div>
 
-        {/* CARD 2: Authorities - Spans 2 columns (Secondary, restrained) */}
-        <div className="md:col-span-2 border border-[#7C93A8]/30 rounded p-8 md:p-10 flex flex-col justify-between min-h-[380px] transition-colors duration-300 bg-transparent">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] tracking-[0.25em] font-semibold text-[#7C93A8] uppercase block">
-                Command Control
-              </span>
-              <Lock className="w-4 h-4 text-[#2F4538]" />
+            <div>
+              <div className="w-14 h-14 rounded-xl bg-emerald-50 border border-emerald-300 text-[#138808] flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
+                <Smartphone className="w-8 h-8 text-[#138808]" />
+              </div>
+
+              <div className="inline-block px-2.5 py-0.5 rounded bg-emerald-100/80 text-emerald-800 border border-emerald-200 text-xs font-extrabold mb-3">
+                PUBLIC MOBILE APP
+              </div>
+
+              <h2 className="text-2xl font-black text-slate-900 group-hover:text-[#138808] transition-colors">
+                {t.forTouristsTitle}
+              </h2>
+
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed font-medium">
+                {t.forTouristsDesc}
+              </p>
+
+              <div className="mt-6 space-y-2 text-xs text-slate-700">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#138808]" />
+                  <span className="font-semibold">Instant 1-Tap SOS Panic Trigger</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#138808]" />
+                  <span className="font-semibold">GPS Coordinate Telemetry Beacon</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#138808]" />
+                  <span className="font-semibold">Directory of Emergency Helplines (112 / 100)</span>
+                </div>
+              </div>
             </div>
-            <h2 className="font-editorial text-3xl text-[#1B2A4A] font-normal leading-tight mb-6">
-              For Authorities
-            </h2>
-            
-            <p className="text-slate-500 font-light text-sm leading-relaxed mb-8">
-              Secured access for police forces, rescue units, and civil administrators. Monitored & audit-logged environment.
-            </p>
 
-            <div className="space-y-4 text-xs text-slate-600 mb-8 font-light">
-              <p>• Threat prediction clusters & anomaly feed</p>
-              <p>• Live tourist tracking & telemetry maps</p>
-              <p>• GIS-based patrol unit dispatch & routing</p>
-              <p>• Geofenced emergency SMS broadcast centers</p>
+            <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between font-black text-[#138808] group-hover:translate-x-1 transition-transform">
+              <span>{t.enterTouristPortal}</span>
+              <ArrowRight className="w-5 h-5" />
             </div>
           </div>
 
-          <button
+          {/* AUTHORITY CARD */}
+          <div
             onClick={() => setShowMfaModal(true)}
-            className="self-start px-6 py-3 border border-[#2F4538] hover:bg-[#2F4538] hover:text-[#FAF7F2] text-[#2F4538] text-xs font-semibold tracking-wider uppercase rounded transition-all duration-300 cursor-pointer"
+            className="group relative bg-white rounded-2xl p-6 sm:p-8 border-2 border-slate-200 hover:border-[#0B2447] transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer flex flex-col justify-between overflow-hidden"
           >
-            Sign in as Authority
-          </button>
-        </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#0B2447]/10 rounded-full blur-2xl group-hover:bg-[#0B2447]/20 transition-all"></div>
 
-      </main>
+            <div>
+              <div className="w-14 h-14 rounded-xl bg-slate-100 border border-[#0B2447]/30 text-[#0B2447] flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
+                <Shield className="w-8 h-8 text-[#0B2447]" />
+              </div>
 
-      {/* FOOTER */}
-      <footer className="w-full border-t border-[#7C93A8]/15 py-8 bg-[#FAF7F2] z-10">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-xs text-[#7C93A8] space-y-4 md:space-y-0 font-light">
-          <span>Digital India Civil Safety Command Framework</span>
-          <div className="flex space-x-6">
-            <span>Encrypted NIC Protocol</span>
-            <span>•</span>
-            <span>Himachal Pradesh Tourism 2026</span>
+              <div className="inline-block px-2.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-xs font-extrabold mb-3">
+                MFA RESTRICTED ACCESS
+              </div>
+
+              <h2 className="text-2xl font-black text-slate-900 group-hover:text-[#0B2447] transition-colors">
+                {t.forAuthoritiesTitle}
+              </h2>
+
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed font-medium">
+                {t.forAuthoritiesDesc}
+              </p>
+
+              <div className="mt-6 space-y-2 text-xs text-slate-700">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#FF9933]" />
+                  <span className="font-semibold">Module 1: AI Anomaly & Threat Predictor</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#FF9933]" />
+                  <span className="font-semibold">Module 2: Tourist Interception & Profile Tracking</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#FF9933]" />
+                  <span className="font-semibold">Module 3: Live GIS SOS Map & Dispatch Ticketing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#FF9933]" />
+                  <span className="font-semibold">Module 4: Geofenced Emergency SMS Broadcast</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between font-black text-[#0B2447] group-hover:translate-x-1 transition-transform">
+              <span>{t.enterAuthorityPortal}</span>
+              <Lock className="w-5 h-5 text-[#FF9933]" />
+            </div>
           </div>
+
         </div>
-      </footer>
+
+        {/* Footnote */}
+        <div className="mt-12 text-xs text-slate-500 flex items-center justify-center space-x-4 font-medium">
+          <span className="flex items-center gap-1 text-slate-600">
+            <Radio className="w-3.5 h-3.5 text-emerald-600" /> Encrypted Protocol NIC-v4.2
+          </span>
+          <span>•</span>
+          <span>Digital India Civil Safety Command Framework</span>
+        </div>
+
+      </div>
 
       {/* MFA VERIFICATION MODAL */}
       {showMfaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1B2A4A]/40 backdrop-blur-sm">
-          <div className="bg-[#FAF7F2] border border-[#7C93A8]/30 rounded max-w-md w-full p-8 shadow-xl relative text-left">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border-2 border-[#FF9933] rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-left">
+
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 rounded border border-[#2F4538]/30 flex items-center justify-center text-[#2F4538]">
-                <KeyRound className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-lg bg-amber-100 border border-[#FF9933] flex items-center justify-center text-[#0B2447]">
+                <KeyRound className="w-6 h-6 text-[#0B2447]" />
               </div>
               <div>
-                <h3 className="font-editorial text-xl font-normal text-[#1B2A4A]">
-                  Secure Verification
+                <h3 className="text-xl font-black text-slate-900">
+                  {t.mfaModalTitle}
                 </h3>
-                <p className="text-[10px] tracking-[0.15em] text-[#7C93A8] uppercase">
-                  MFA / Badge Verification
+                <p className="text-xs text-slate-500 font-medium">
+                  Authentication & Badge Verification
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleMfaSubmit} className="space-y-5">
+            <form onSubmit={handleMfaSubmit} className="space-y-4">
               {mfaError && (
-                <div className="p-3 border border-red-200 bg-red-50 text-red-800 text-xs rounded flex items-center gap-2 font-medium">
+                <div className="p-3 bg-red-50 border border-red-300 text-red-800 text-xs rounded-lg flex items-center gap-2 font-bold">
                   <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
                   <span>{mfaError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-[10px] tracking-[0.15em] font-semibold text-slate-700 uppercase mb-1.5">
-                  Officer Badge ID
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t.mfaBadgeIdLabel}
                 </label>
                 <input
                   type="text"
                   value={badgeId}
                   onChange={(e) => setBadgeId(e.target.value)}
                   placeholder="IPS-7742"
-                  className="w-full px-3.5 py-2.5 rounded bg-white border border-[#7C93A8]/30 text-[#1B2A4A] font-mono text-sm focus:outline-none focus:border-[#1B2A4A] transition"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF9933]"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] tracking-[0.15em] font-semibold text-slate-700 uppercase mb-1.5">
-                  MFA Authentication Code
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t.mfaOtpLabel}
                 </label>
                 <input
                   type="password"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   placeholder="789012"
-                  className="w-full px-3.5 py-2.5 rounded bg-white border border-[#7C93A8]/30 text-[#1B2A4A] font-mono text-sm tracking-widest focus:outline-none focus:border-[#1B2A4A] transition"
+                  className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 font-mono text-sm tracking-widest focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF9933]"
                 />
               </div>
 
-              <div className="p-3 bg-white border border-[#7C93A8]/20 rounded text-[11px] text-slate-500 font-mono">
-                ℹ️ Demo access: Use IPS-7742 / 789012
+              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-900 font-mono font-medium">
+                ℹ️ {t.mfaDemoNote}
               </div>
 
               <div className="pt-2 flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowMfaModal(false)}
-                  className="flex-1 px-4 py-2.5 rounded border border-[#7C93A8]/30 text-slate-600 hover:bg-slate-100 text-xs font-semibold tracking-wider uppercase transition"
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-sm font-bold transition"
                 >
-                  Cancel
+                  {t.cancelBtn}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 rounded bg-[#2F4538] hover:bg-[#1B2A4A] text-[#FAF7F2] text-xs font-semibold tracking-wider uppercase transition flex items-center justify-center space-x-2 cursor-pointer"
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-[#0B2447] hover:bg-[#071933] text-white text-sm font-extrabold transition shadow-lg flex items-center justify-center gap-2"
                 >
-                  <span>Authenticate</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{t.mfaVerifyBtn}</span>
+                  <ArrowRight className="w-4 h-4 text-[#FF9933]" />
                 </button>
               </div>
             </form>

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db';
+import { all, get, run, insertAuditLogSecure } from '../db';
 
 const router = Router();
 
@@ -62,45 +62,85 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/v1/sos - Create or Sync SOS alert
+// POST /api/v1/sos - Ingest emergency SOS alert (with Bluetooth hop support & deduplication)
 router.post('/', async (req, res) => {
   try {
     const {
       tourist_id,
+      touristName,
       tourist_name,
+      touristPhone,
       tourist_phone,
       latitude,
       longitude,
       address,
       description,
       severity,
+      hazard_type,
       trigger_source,
-      hazard_type
+      client_generated_id,
+      hop_count,
+      hop_path,
+      origin_device_id
     } = req.body;
 
-    const sos_id = `SOS-${Math.floor(9000 + Math.random() * 999)}`;
-    const incident_id = `INC-${Date.now()}`;
+    const sos_id = client_generated_id || `SOS-${Math.floor(1000 + Math.random() * 9000)}`;
+    const incident_id = sos_id;
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    // Retrieve tourist info if tourist_id is provided
-    let name = tourist_name || 'Anonymous Tourist';
-    let phone = tourist_phone || '+91 99999 00000';
-    if (tourist_id) {
-      const tourist = await get('SELECT * FROM tourists WHERE id = ? OR tourist_id = ?', [tourist_id, tourist_id]);
-      if (tourist) {
-        name = tourist.name || name;
-        phone = tourist.phone || phone;
+    // Server-side deduplication check: If this SOS ID was already ingested, return existing record
+    const existing = await get('SELECT * FROM sos_incidents WHERE id = ?', [sos_id]);
+    if (existing) {
+      console.log(`[SOS API] Duplicate SOS ${sos_id} detected. Returning existing record without re-inserting.`);
+      return res.status(200).json({
+        success: true,
+        message: 'SOS Alert already registered in Command System.',
+        sos_id: existing.id,
+        incident_id: existing.id,
+        status: existing.status,
+        timestamp: existing.timestamp
+      });
+    }
 
-        // Update tourist safety status to SOS Active
-        await run("UPDATE tourists SET safety_status = 'SOS Active' WHERE id = ? OR tourist_id = ?", [tourist_id, tourist_id]);
+    // Look up tourist name/phone if not provided in body
+    let name = tourist_name || touristName;
+    let phone = tourist_phone || touristPhone;
+    if ((!name || !phone) && tourist_id) {
+      const tourist = await get(
+        'SELECT name, full_name, phone FROM tourists WHERE id = ? OR tourist_id = ? OR digital_id = ?',
+        [tourist_id, tourist_id, tourist_id]
+      );
+      if (tourist) {
+        name = name || tourist.full_name || tourist.name;
+        phone = phone || tourist.phone;
       }
+    }
+
+    name = name || (tourist_id ? `Tourist (${tourist_id})` : 'Elena Rostova');
+    phone = phone || '+91 98765 43210';
+
+    // Update tourist safety status in SQLite
+    if (tourist_id) {
+      await run(
+        "UPDATE tourists SET safety_status = 'Caution', last_seen_time = ? WHERE id = ? OR tourist_id = ? OR digital_id = ?",
+        ['Just now', tourist_id, tourist_id, tourist_id]
+      );
     }
 
     const lat = latitude !== undefined && latitude !== null ? latitude : 32.2432;
     const lng = longitude !== undefined && longitude !== null ? longitude : 77.1892;
     const addr = address || `Lat: ${lat}, Lng: ${lng}`;
-    const hazType = hazard_type || 'Emergency Panic Beacon';
-    const notes = description || 'Emergency SOS trigger transmitted to command center.';
+    const hazType = hazard_type || (hop_count && hop_count > 0 ? 'BLE Relayed Panic Beacon' : 'Emergency Panic Beacon');
+    
+    // Deduplicate consecutive hops in hop_path
+    const cleanedHopPath = Array.isArray(hop_path)
+      ? hop_path.filter((node: string, idx: number, arr: string[]) => idx === 0 || node !== arr[idx - 1])
+      : [];
+
+    let notes = description || 'Emergency SOS trigger transmitted to command center.';
+    if (hop_count && hop_count > 0) {
+      notes += ` [Relayed via ${hop_count} Bluetooth Hop(s) - Path: ${cleanedHopPath.join(' ➔ ') || origin_device_id || 'BLE Mesh'}]`;
+    }
 
     await run(
       `INSERT INTO sos_incidents (
@@ -109,23 +149,17 @@ router.post('/', async (req, res) => {
       [sos_id, tourist_id || 'TR-88219', name, phone, lat, lng, addr, timestamp, 'New', severity || 'Critical', hazType, notes, trigger_source || 'APP']
     );
 
-    // Auto-create audit log
-    const auditId = `AUD-${Math.floor(1000 + Math.random() * 9000)}`;
-    await run(
-      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        auditId,
-        timestamp,
-        'System Gateway',
-        'SYS-BEACON',
-        'TICKET_STATUS_CHANGE',
-        sos_id,
-        'Active SOS Response',
-        `New panic signal received from ${name} at ${addr}`,
-        req.ip || '127.0.0.1'
-      ]
-    );
+    // Auto-create audit log with cryptographic hash chain
+    await insertAuditLogSecure({
+      timestamp,
+      officerName: 'System Gateway',
+      officerBadge: 'SYS-BEACON',
+      actionType: 'TICKET_STATUS_CHANGE',
+      targetId: sos_id,
+      reason: 'Active SOS Response',
+      details: `New panic signal received from ${name} at ${addr} (${trigger_source || 'APP'}${hop_count ? `, ${hop_count} hops` : ''})`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
 
     res.status(201).json({
       success: true,
@@ -133,7 +167,8 @@ router.post('/', async (req, res) => {
       sos_id,
       incident_id,
       status: 'New',
-      timestamp
+      timestamp,
+      hop_count: hop_count || 0
     });
   } catch (err: any) {
     console.error('Error handling SOS POST:', err);
@@ -190,21 +225,16 @@ router.post('/:id/dispatch', async (req, res) => {
     await run("UPDATE patrolling_units SET status = 'Dispatched', assigned_incident_id = ? WHERE id = ?", [incidentId, unitId]);
 
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    await run(
-      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-        timestamp,
-        'Rajesh Kumar, IPS',
-        'IPS-7742',
-        'DISPATCH_UNIT',
-        unitId,
-        'Active SOS Response',
-        `Dispatched unit ${unit.unit_name} to SOS Incident ${incidentId}`,
-        req.ip || '10.142.0.88'
-      ]
-    );
+    await insertAuditLogSecure({
+      timestamp,
+      officerName: 'Rajesh Kumar, IPS',
+      officerBadge: 'IPS-7742',
+      actionType: 'DISPATCH_UNIT',
+      targetId: unitId,
+      reason: 'Active SOS Response',
+      details: `Dispatched unit ${unit.unit_name} to SOS Incident ${incidentId}`,
+      ipAddress: req.ip || '10.142.0.88'
+    });
 
     res.json({ success: true, message: `Unit ${unit.unit_name} dispatched to incident ${incidentId}` });
   } catch (err: any) {

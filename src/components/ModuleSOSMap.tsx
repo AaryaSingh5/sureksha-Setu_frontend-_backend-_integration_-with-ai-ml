@@ -39,6 +39,21 @@ interface ModuleSOSMapProps {
   onAddMockSos: () => void;
 }
 
+function formatTicketTime(timestamp?: string): string {
+  if (!timestamp) return 'Just now';
+  try {
+    if (timestamp.includes(' ')) {
+      return timestamp.split(' ')[1] || timestamp;
+    }
+    if (timestamp.includes('T')) {
+      return timestamp.split('T')[1]?.substring(0, 8) || timestamp;
+    }
+    return timestamp;
+  } catch {
+    return 'Active';
+  }
+}
+
 export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
   language,
   incidents,
@@ -50,7 +65,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
   onAddMockSos
 }) => {
   const t = i18n[language];
-  
+
   // Layer toggles
   const [showSosLayer, setShowSosLayer] = useState(true);
   const [showRespondersLayer, setShowRespondersLayer] = useState(true);
@@ -66,10 +81,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
   return (
     <div className="space-y-6">
-      
+
       {/* Top Layer Toggles & Action Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        
+
         {/* Layer Toggles */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="font-extrabold text-[#1B2A4A] uppercase tracking-wider text-[11px] flex items-center gap-1">
@@ -79,11 +94,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowSosLayer(!showSosLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showSosLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showSosLayer
                 ? 'bg-red-50 border-red-300 text-red-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
             <span>{t.layerSosBeacons}</span>
@@ -91,11 +105,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowRespondersLayer(!showRespondersLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showRespondersLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showRespondersLayer
                 ? 'bg-blue-50 border-blue-300 text-blue-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <Radio className="w-3.5 h-3.5 text-blue-600" />
             <span>{t.layerResponders}</span>
@@ -103,11 +116,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowStationsLayer(!showStationsLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showStationsLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showStationsLayer
                 ? 'bg-emerald-50 border-emerald-300 text-[#2F4538]'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <Building2 className="w-3.5 h-3.5 text-[#2F4538]" />
             <span>{t.layerStations}</span>
@@ -115,11 +127,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowHospitalsLayer(!showHospitalsLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showHospitalsLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showHospitalsLayer
                 ? 'bg-rose-50 border-rose-300 text-rose-800'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <HeartPulse className="w-3.5 h-3.5 text-rose-600" />
             <span>{t.layerHospitals}</span>
@@ -127,11 +138,10 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
 
           <button
             onClick={() => setShowHeatmapLayer(!showHeatmapLayer)}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${
-              showHeatmapLayer
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition flex items-center gap-1.5 ${showHeatmapLayer
                 ? 'bg-amber-50 border-amber-300 text-amber-900'
                 : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
+              }`}
           >
             <Flame className="w-3.5 h-3.5 text-amber-600" />
             <span>{t.layerHeatmap}</span>
@@ -157,7 +167,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
         </div>
 
         <div className="relative w-full h-[400px] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center">
-          
+
           {/* Custom Stylized Map Grid & Terrain Lines */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:2.5rem_2.5rem] opacity-40"></div>
 
@@ -185,13 +195,12 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 {inc.status !== 'Resolved' && (
                   <div className="w-12 h-12 rounded-full bg-red-600/30 border border-red-500 animate-ping absolute"></div>
                 )}
-                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center shadow-2xl transition-transform ${
-                  isSelected
+                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center shadow-2xl transition-transform ${isSelected
                     ? 'bg-red-600 border-white scale-125 z-30'
                     : inc.status === 'Resolved'
-                    ? 'bg-[#2F4538] border-emerald-300 text-white'
-                    : 'bg-red-600 border-amber-400 text-white group-hover:scale-110'
-                }`}>
+                      ? 'bg-[#2F4538] border-emerald-300 text-white'
+                      : 'bg-red-600 border-amber-400 text-white group-hover:scale-110'
+                  }`}>
                   <ShieldAlert className="w-5 h-5 text-white" />
                 </div>
 
@@ -289,7 +298,7 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
           {/* COLUMN 1: NEW SOS ALERTS */}
           <div className="bg-red-50/60 border border-red-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-red-200 pb-2">
@@ -311,14 +320,14 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                 <div key={ticket.id} className="p-3.5 bg-white border border-red-200 rounded-xl space-y-2 shadow-sm">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-mono font-bold text-red-700">{ticket.id}</span>
-                    <span className="text-[10px] text-slate-500 font-medium">{ticket.timestamp.split(' ')[1]}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{formatTicketTime(ticket.timestamp)}</span>
                   </div>
 
-                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName}</div>
-                  <div className="text-xs text-slate-600">{ticket.location.address}</div>
+                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-xs text-slate-600">{ticket.location?.address || 'Solang Valley Sector'}</div>
 
                   <div className="text-[11px] p-2 bg-amber-50 rounded border border-amber-200 text-amber-900 font-medium">
-                    ⚠️ {ticket.notes}
+                    ⚠️ {ticket.notes || 'Emergency distress signal'}
                   </div>
 
                   <div className="pt-2 flex flex-col gap-1.5">
@@ -363,8 +372,8 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
                     <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-extrabold">DISPATCHED</span>
                   </div>
 
-                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName}</div>
-                  <div className="text-xs text-slate-600">{ticket.location.address}</div>
+                  <div className="font-bold text-slate-900 text-sm">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-xs text-slate-600">{ticket.location?.address || 'Solang Valley Sector'}</div>
 
                   <div className="p-2 bg-amber-50 rounded border border-amber-200 text-xs text-amber-900 font-mono font-bold">
                     Assigned: {ticket.unitAssigned || 'PCR Unit'}
@@ -402,12 +411,12 @@ export const ModuleSOSMap: React.FC<ModuleSOSMapProps> = ({
               resolvedTickets.map((ticket) => (
                 <div key={ticket.id} className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1 text-xs shadow-sm hover:border-slate-300 transition">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-[#2F4538]">{ticket.id}</span>
-                    <span className="text-[10px] text-slate-500">{ticket.timestamp.split(' ')[1]}</span>
+                    <span className="font-mono font-bold text-[#138808]">{ticket.id}</span>
+                    <span className="text-[10px] text-slate-500">{formatTicketTime(ticket.timestamp)}</span>
                   </div>
-                  <div className="font-bold text-slate-900">{ticket.touristName}</div>
-                  <div className="text-[11px] text-slate-600">{ticket.hazardType}</div>
-                  <div className="text-[10px] text-[#2F4538] font-bold mt-1">✓ Citizen Marked Safe</div>
+                  <div className="font-bold text-slate-900">{ticket.touristName || 'Tourist'}</div>
+                  <div className="text-[11px] text-slate-600">{ticket.hazardType || 'Distress Incident'}</div>
+                  <div className="text-[10px] text-[#138808] font-bold mt-1">✓ Citizen Marked Safe</div>
                 </div>
               ))
             )}

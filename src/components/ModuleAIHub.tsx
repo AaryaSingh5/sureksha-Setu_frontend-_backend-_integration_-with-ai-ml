@@ -3,7 +3,6 @@ import {
   BrainCircuit,
   Flame,
   AlertTriangle,
-  Activity,
   MapPin,
   Cpu,
   ArrowRight,
@@ -15,14 +14,50 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { Language, AnomalyCluster, AILog } from '../types';
+import { Language, AnomalyCluster } from '../types';
 import { i18n } from '../data/i18n';
 import { fetchRiskAlertsAPI, submitAlertFeedbackAPI, fetchModelMetadataAPI } from '../lib/api';
+
+const DEFAULT_MODEL_META = {
+  model_version: "v1.0.0",
+  training_date: "2026-08-22 08:16:54 UTC",
+  model_type: "Isolation Forest (unsupervised)",
+  features: [
+    "latitude",
+    "longitude",
+    "speed",
+    "distance_from_expected_route",
+    "time_of_day_sin",
+    "time_of_day_cos",
+    "dwell_time",
+    "frequency_of_location_changes",
+    "distance_from_nearest_safe",
+    "geofence_status"
+  ],
+  hyperparameters: {
+    n_estimators: 100,
+    contamination: 0.02,
+    random_state: 42
+  },
+  feature_importances: {
+    "distance_from_expected_route": 0.25,
+    "geofence_status": 0.20,
+    "dwell_time": 0.15,
+    "distance_from_nearest_safe": 0.12,
+    "speed": 0.10,
+    "frequency_of_location_changes": 0.08,
+    "latitude": 0.04,
+    "longitude": 0.04,
+    "time_of_day_sin": 0.01,
+    "time_of_day_cos": 0.01
+  },
+  training_data_source: "Synthetic Trajectories (Himachal Pradesh pilot region)",
+  warning: "This model was trained entirely on synthetic movement trajectories simulating normal tourist hiking and walking behavior in Kullu/Manali. Anomaly detection thresholds and feature distributions must be calibrated with real historical field telemetry before production deployment."
+};
 
 interface ModuleAIHubProps {
   language: Language;
   clusters: AnomalyCluster[];
-  aiLogs: AILog[];
   onInvestigateCluster: (cluster: AnomalyCluster) => void;
   onNavigateToMap: () => void;
 }
@@ -30,17 +65,17 @@ interface ModuleAIHubProps {
 export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
   language,
   clusters,
-  aiLogs,
   onInvestigateCluster,
   onNavigateToMap
 }) => {
   const t = i18n[language];
   const [selectedClusterId, setSelectedClusterId] = useState<string>(clusters[0]?.id || '');
-  const [activeTab, setActiveTab] = useState<'heatmaps' | 'alerts' | 'metadata'>('heatmaps');
+  const [activeTab, setActiveTab] = useState<'heatmaps' | 'metadata'>('heatmaps');
+  const [hubRightTab, setHubRightTab] = useState<'zones' | 'reviews'>('zones');
 
   // FastAPI Risk States
   const [riskAlerts, setRiskAlerts] = useState<any[]>([]);
-  const [modelMeta, setModelMeta] = useState<any>(null);
+  const [modelMeta, setModelMeta] = useState<any>(DEFAULT_MODEL_META);
   const [loading, setLoading] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState<string | null>(null);
 
@@ -149,24 +184,6 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
           <span>Regional Heatmaps</span>
         </button>
         <button
-          onClick={() => setActiveTab('alerts')}
-          className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-1.5 ${
-            activeTab === 'alerts'
-              ? 'border-[#E8935C] text-[#1B2A4A] font-black'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <AlertCircle className="w-4 h-4" />
-          <span>Context Risk Alerts</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold font-mono ${
-            riskAlerts.filter(a => a.status === 'NEW').length > 0
-              ? 'bg-red-600 text-white animate-pulse'
-              : 'bg-slate-200 text-slate-700'
-          }`}>
-            {riskAlerts.filter(a => a.status === 'NEW').length}
-          </span>
-        </button>
-        <button
           onClick={() => setActiveTab('metadata')}
           className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-1.5 ${
             activeTab === 'metadata'
@@ -261,13 +278,15 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
             )}
           </div>
 
-          {/* Right Col: Incident Clusters List */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+          {/* Right Col: Unified AI Safety Desk */}
+          <div className="space-y-6">
+            
+            {/* Card 1: AI Incident Anomaly Clusters */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-red-600" />
-                  <span>{t.incidentClusters}</span>
+                  <Flame className="w-5 h-5 text-red-600 animate-pulse" />
+                  <span>AI Incident Anomaly Clusters</span>
                 </h3>
                 <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] font-bold">
                   {clusters.length} Active
@@ -278,7 +297,7 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
                   <div
                     key={c.id}
                     onClick={() => setSelectedClusterId(c.id)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition ${
+                    className={`p-3.5 rounded-xl border cursor-pointer transition text-left ${
                       selectedClusterId === c.id
                         ? 'bg-amber-50/80 border-[#E8935C] shadow-sm'
                         : 'bg-slate-50 border-slate-200 hover:border-slate-300'
@@ -297,141 +316,81 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
                 ))}
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-              <span className="text-[11px] text-slate-500 font-medium">Continuous AI Anomaly Model: Active Stream</span>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Tab 2: Context-Aware Risk Alerts */}
-      {activeTab === 'alerts' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <span>Real-Time Context Risk Alerts</span>
-            </h3>
-            <button
-              onClick={loadRiskEngineData}
-              className="text-xs flex items-center gap-1 text-[#1B2A4A] font-bold hover:underline"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reload Engine Data</span>
-            </button>
-          </div>
+            {/* Card 2: AI Safety Reviews */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
+                  <span>AI Safety Reviews</span>
+                </h3>
+                <span className="px-2 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 font-mono text-[10px] font-bold">
+                  {riskAlerts.filter(a => a.status === 'NEW').length} Pending
+                </span>
+              </div>
 
-          {riskAlerts.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 font-medium space-y-2">
-              <CheckCircle2 className="w-12 h-12 text-[#2F4538] mx-auto" />
-              <p className="text-sm">No risk alerts detected. All active tourists are within safe baseline bounds.</p>
-              <p className="text-xs opacity-75">Connect the simulator or trigger pings to test the scoring pipeline.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {riskAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between gap-4 transition duration-200 ${
-                    alert.status === 'NEW'
-                      ? 'bg-slate-50 border-slate-300 shadow-sm'
-                      : alert.status === 'DISMISSED'
-                      ? 'bg-emerald-50/50 border-emerald-200 opacity-60'
-                      : 'bg-red-50/50 border-red-200'
-                  }`}
-                >
-                  <div className="space-y-3 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-extrabold text-xs text-slate-800 bg-slate-200 px-2.5 py-0.5 rounded-full font-mono">
-                        {alert.tourist_id}
-                      </span>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                        alert.priority === 'P1' ? 'bg-red-600 text-white' : alert.priority === 'P2' ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'
-                      }`}>
-                        {alert.priority}
-                      </span>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                        alert.band === 'CRITICAL' ? 'bg-red-50 border-red-200 text-red-700' : alert.band === 'HIGH' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-100 border-slate-200 text-slate-700'
-                      }`}>
-                        {alert.band} ({alert.total_score}/100)
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1 ml-auto">
-                        <Clock className="w-3 h-3" />
-                        {alert.created_at.substring(11, 19)} UTC
-                      </span>
-                    </div>
+              <div className="space-y-3">
+                {riskAlerts.filter(a => a.status === 'NEW').length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 font-medium space-y-1">
+                    <CheckCircle2 className="w-8 h-8 text-[#2F4538] mx-auto" />
+                    <p className="text-xs">No pending reviews. All active tourists are within safe baseline bounds.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    {riskAlerts.filter(a => a.status === 'NEW').map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold font-mono text-slate-800 bg-slate-200 px-1.5 py-0.5 rounded">
+                            {alert.tourist_id}
+                          </span>
+                          <span className="font-mono font-bold text-red-700 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded font-bold">
+                            Score: {alert.total_score}/100
+                          </span>
+                        </div>
+                        
+                        {/* Short summary of why flagged */}
+                        <div className="text-[10px] text-slate-600 font-medium leading-relaxed">
+                          {alert.details.breakdown.rule_based.factors.length > 0 
+                            ? `Fired Rules: ${alert.details.breakdown.rule_based.factors.map((f: any) => f.factor.replace('_', ' ')).join(', ')}` 
+                            : 'Flagged by ML Anomaly engine.'}
+                        </div>
 
-                    {/* Fired Factors explainability */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
-                      {/* Rules */}
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <div className="font-extrabold text-[#1B2A4A] mb-1">Rule Engine Contribution: +{alert.details.breakdown.rule_based.score} pts</div>
-                        {alert.details.breakdown.rule_based.factors.length === 0 ? (
-                          <div className="text-slate-400 italic">No rules fired.</div>
-                        ) : (
-                          <ul className="list-disc pl-4 space-y-0.5 text-slate-600 font-medium">
-                            {alert.details.breakdown.rule_based.factors.map((f: any, i: number) => (
-                              <li key={i}>{f.factor.replace('_', ' ')} (+{f.points})</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Regional */}
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <div className="font-extrabold text-[#1B2A4A] mb-1">Regional Context Layer: +{alert.details.breakdown.regional_context.score} pts</div>
-                        <p className="text-slate-600 leading-relaxed font-medium">
-                          {alert.details.breakdown.regional_context.reason || "Normal context risk parameters."}
-                        </p>
-                      </div>
-
-                      {/* ML Anomaly */}
-                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <div className="font-extrabold text-[#1B2A4A] mb-1">ML Isolation Forest: +{alert.details.breakdown.ml_anomaly.score} pts</div>
-                        <div className="text-slate-600 font-medium space-y-0.5">
-                          <div>Anomaly Score: {Math.round(alert.details.breakdown.ml_anomaly.raw_anomaly_score * 100)}%</div>
-                          <div className="text-[10px] opacity-75 font-mono">Decision: {alert.details.breakdown.ml_anomaly.raw_decision_value}</div>
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 justify-end">
+                          <button
+                            disabled={feedbackLoading === alert.id}
+                            onClick={() => handleFeedback(alert.id, 'confirmed')}
+                            className="px-2 py-1 bg-[#E8935C] text-[#0C2340] hover:bg-amber-600 text-[10px] font-black rounded flex items-center gap-1 shadow-sm transition disabled:opacity-50 cursor-pointer"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <span>Confirm</span>
+                          </button>
+                          <button
+                            disabled={feedbackLoading === alert.id}
+                            onClick={() => handleFeedback(alert.id, 'false_positive')}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold rounded flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                            <span>False Pos</span>
+                          </button>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-
-                  {/* Actions Column */}
-                  <div className="flex md:flex-col justify-end items-center gap-2 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-4">
-                    {alert.status === 'NEW' ? (
-                      <>
-                        <button
-                          disabled={feedbackLoading === alert.id}
-                          onClick={() => handleFeedback(alert.id, 'confirmed')}
-                          className="px-3 py-1.5 bg-[#E8935C] text-white hover:bg-amber-600 text-xs font-black rounded-lg flex items-center gap-1 shadow-sm transition disabled:opacity-50"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          <span>Confirm</span>
-                        </button>
-                        <button
-                          disabled={feedbackLoading === alert.id}
-                          onClick={() => handleFeedback(alert.id, 'false_positive')}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 transition disabled:opacity-50"
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5" />
-                          <span>False Pos</span>
-                        </button>
-                      </>
-                    ) : (
-                      <div className="text-xs font-bold font-mono py-1 px-2.5 rounded bg-white border border-slate-200 text-slate-500">
-                        {alert.status}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          )}
+
+          </div>
         </div>
       )}
 
+
       {/* Tab 3: Model Metadata */}
-      {activeTab === 'metadata' && (
+      {activeTab === 'metadata' && modelMeta && (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 animate-fadeIn">
           <div className="flex items-center border-b border-slate-200 pb-3">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -440,82 +399,73 @@ export const ModuleAIHub: React.FC<ModuleAIHubProps> = ({
             </h3>
           </div>
 
-          {!modelMeta ? (
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 text-xs font-medium text-center">
-              Risk Engine backend not connected. Run train_model.py to initialize the Isolation Forest.
+          <div className="space-y-4 text-xs text-left">
+            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl space-y-1">
+              <div className="font-extrabold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>Synthetic Data Disclosure Notice</span>
+              </div>
+              <p className="leading-relaxed font-medium text-[11px]">
+                {modelMeta.warning}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4 text-xs">
-              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl space-y-1">
-                <div className="font-extrabold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Synthetic Data Disclosure Notice</span>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50">
+                <div className="font-black text-[#1B2A4A] text-sm mb-2">Model Summary</div>
+                <div className="space-y-1.5 font-medium text-slate-700">
+                  <div><strong>Algorithm:</strong> {modelMeta.model_type}</div>
+                  <div><strong>Version ID:</strong> {modelMeta.model_version}</div>
+                  <div><strong>Training Date:</strong> {modelMeta.training_date}</div>
+                  <div><strong>DataSource:</strong> {modelMeta.training_data_source}</div>
                 </div>
-                <p className="leading-relaxed font-medium text-[11px]">
-                  {modelMeta.warning}
-                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50">
-                  <div className="font-black text-[#1B2A4A] text-sm mb-2">Model Summary</div>
-                  <div className="space-y-1.5 font-medium text-slate-700">
-                    <div><strong>Algorithm:</strong> {modelMeta.model_type}</div>
-                    <div><strong>Version ID:</strong> {modelMeta.model_version}</div>
-                    <div><strong>Training Date:</strong> {modelMeta.training_date}</div>
-                    <div><strong>DataSource:</strong> {modelMeta.training_data_source}</div>
+              <div className="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50">
+                <div className="font-black text-[#1B2A4A] text-sm mb-2">Model Hyperparameters</div>
+                <div className="space-y-1.5 font-medium text-slate-700 font-mono text-[11px]">
+                  <div>n_estimators: {modelMeta.hyperparameters?.n_estimators || 100}</div>
+                  <div>contamination: {modelMeta.hyperparameters?.contamination || 0.02} (2%)</div>
+                  <div>random_state: {modelMeta.hyperparameters?.random_state || 42}</div>
+                  <div>max_samples: "auto"</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-slate-200 p-4 rounded-xl bg-slate-50">
+                <div className="font-black text-[#1B2A4A] text-sm mb-2">Features Extracted per Location Ping</div>
+                <ul className="list-decimal pl-5 space-y-1 font-mono text-[10px] text-slate-600">
+                  {modelMeta.features.map((f: string, i: number) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {modelMeta.feature_importances && (
+                <div className="border border-slate-200 p-4 rounded-xl bg-slate-50">
+                  <div className="font-black text-[#1B2A4A] text-sm mb-2">Feature Importance/Weights (Approx)</div>
+                  <div className="space-y-2">
+                    {Object.entries(modelMeta.feature_importances).map(([feature, weight]: any) => (
+                      <div key={feature} className="flex items-center justify-between text-[11px]">
+                        <span className="font-mono text-slate-600 truncate max-w-[150px]" title={feature}>{feature}</span>
+                        <div className="flex items-center gap-2 w-1/2">
+                          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-[#E8935C] h-full" style={{ width: `${weight * 100}%` }}></div>
+                          </div>
+                          <span className="font-mono font-bold text-slate-800 w-8 text-right">{Math.round(weight * 100)}%</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                <div className="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50">
-                  <div className="font-black text-[#1B2A4A] text-sm mb-2">Features Extracted per Location Ping</div>
-                  <ul className="list-decimal pl-5 space-y-1 font-mono text-[10px] text-slate-600">
-                    {modelMeta.features.map((f: string, i: number) => (
-                      <li key={i}>{f}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
-      {/* AI Contextual Stream Logs (always present) */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-          <div className="flex items-center space-x-2">
-            <Activity className="w-5 h-5 text-[#2F4538] animate-pulse" />
-            <h3 className="text-base font-bold text-slate-900">
-              {t.contextualAnalysis}
-            </h3>
-          </div>
-          <span className="text-xs font-mono text-[#2F4538] flex items-center gap-1 font-bold">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Live Telemetry
-          </span>
-        </div>
 
-        <div className="space-y-2 font-mono text-xs">
-          {aiLogs.map((log) => (
-            <div
-              key={log.id}
-              className={`p-3 rounded-lg border flex items-start space-x-3 ${
-                log.severity === 'critical'
-                  ? 'bg-red-50 border-red-200 text-red-950'
-                  : log.severity === 'warning'
-                  ? 'bg-amber-50 border-amber-200 text-amber-950'
-                  : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
-            >
-              <span className="text-slate-500 flex-shrink-0 text-[10px] pt-0.5">[{log.timestamp}]</span>
-              <div className="flex-1">
-                <div className="font-bold">{language === 'hi' ? log.messageHi : log.messageEn}</div>
-                <div className="text-[10px] opacity-80 mt-0.5">Region: {log.region} • Confidence Index: {log.modelConfidence}%</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
     </div>
   );

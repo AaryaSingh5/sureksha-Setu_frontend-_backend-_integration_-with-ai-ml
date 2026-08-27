@@ -39,6 +39,7 @@ import { ModuleTouristTracking } from './components/ModuleTouristTracking';
 import { ModuleSOSMap } from './components/ModuleSOSMap';
 import { ModuleBroadcast } from './components/ModuleBroadcast';
 import { ModuleAnalyticsAudit } from './components/ModuleAnalyticsAudit';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
@@ -59,18 +60,24 @@ export default function App() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [prefilledTouristId, setPrefilledTouristId] = useState('');
 
-  // Fetch live master data from SQLite backend on startup
+  // Fetch live master data from SQLite backend on startup and poll every 3 seconds
   useEffect(() => {
-    fetchInitialData().then((data) => {
-      if (data.tourists?.length) setTourists(data.tourists);
-      if (data.incidents?.length) setIncidents(data.incidents);
-      if (data.units?.length) setUnits(data.units);
-      if (data.stations?.length) setStations(data.stations);
-      if (data.clusters?.length) setClusters(data.clusters);
-      if (data.broadcasts?.length) setBroadcasts(data.broadcasts);
-      if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
-      if (data.aiLogs?.length) setAiLogs(data.aiLogs);
-    });
+    const refreshData = () => {
+      fetchInitialData().then((data) => {
+        if (data.tourists?.length) setTourists(data.tourists);
+        if (data.incidents?.length) setIncidents(data.incidents);
+        if (data.units?.length) setUnits(data.units);
+        if (data.stations?.length) setStations(data.stations);
+        if (data.clusters?.length) setClusters(data.clusters);
+        if (data.broadcasts?.length) setBroadcasts(data.broadcasts);
+        if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
+        if (data.aiLogs?.length) setAiLogs(data.aiLogs);
+      });
+    };
+
+    refreshData();
+    const interval = setInterval(refreshData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   // Register service worker for offline PWA compliance
@@ -149,7 +156,7 @@ export default function App() {
     };
 
     setIncidents((prev) => [newIncident, ...prev]);
-    
+
     // Update tourist safety status
     setTourists((prev) =>
       prev.map((t) =>
@@ -261,11 +268,11 @@ export default function App() {
     );
   };
 
-  const activeSosCount = incidents.filter((i) => i.status !== 'Resolved').length;
+  const activeSosCount = (incidents || []).filter((i) => i && i.status !== 'Resolved').length;
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} flex flex-col font-sans transition-colors duration-200`}>
-      
+
       {/* Command Header */}
       {userRole !== 'gateway' && (
         <Header
@@ -286,87 +293,102 @@ export default function App() {
 
       {/* Main Content Area */}
       {userRole === 'gateway' ? (
-        <Gateway
-          language={language}
-          onLanguageChange={setLanguage}
-          onSelectRole={(role) => setUserRole(role)}
-          onAuthenticateAuthority={handleAuthenticateAuthority}
-        />
+        <ErrorBoundary componentName="Public Gateway Screen">
+          <Gateway
+            language={language}
+            onLanguageChange={setLanguage}
+            onSelectRole={(role) => setUserRole(role)}
+            onAuthenticateAuthority={handleAuthenticateAuthority}
+          />
+        </ErrorBoundary>
       ) : userRole === 'tourist' ? (
-        <TouristPortal
-          language={language}
-          onLanguageChange={(lang) => setLanguage(lang)}
-          onTriggerSos={handleTouristTriggerSos}
-          onReturnToGateway={() => setUserRole('gateway')}
-          onRegisterTourist={(newTourist) => {
-            setTourists((prev) => [newTourist, ...prev.filter(t => t.id !== newTourist.id)]);
-            createTouristAPI(newTourist).catch((err) => console.warn('Register Tourist API error:', err));
-          }}
-          existingTourists={tourists}
-        />
+        <ErrorBoundary componentName="Tourist Safety Portal">
+          <TouristPortal
+            language={language}
+            onLanguageChange={(lang) => setLanguage(lang)}
+            onTriggerSos={handleTouristTriggerSos}
+            onReturnToGateway={() => setUserRole('gateway')}
+            onRegisterTourist={(newTourist) => {
+              setTourists((prev) => [newTourist, ...prev.filter(t => t.id !== newTourist.id)]);
+              createTouristAPI(newTourist).catch((err) => console.warn('Register Tourist API error:', err));
+            }}
+            existingTourists={tourists}
+          />
+        </ErrorBoundary>
       ) : (
         <div className="flex-1 flex flex-col max-w-[1700px] w-full mx-auto">
-          
+
           {/* Module Screen Content */}
           <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
             {activeModule === 'ai_hub' && (
-              <ModuleAIHub
-                language={language}
-                clusters={clusters}
-                aiLogs={aiLogs}
-                onInvestigateCluster={(cluster) => {
-                  setPrefilledTouristId('TR-88219');
-                  setActiveModule('tourist_tracking');
-                }}
-                onNavigateToMap={() => setActiveModule('sos_map')}
-              />
+              <ErrorBoundary componentName="AI Threat Prediction Hub">
+                <ModuleAIHub
+                  language={language}
+                  clusters={clusters}
+                  onInvestigateCluster={(cluster) => {
+                    setPrefilledTouristId('TR-88219');
+                    setActiveModule('tourist_tracking');
+                  }}
+                  onNavigateToMap={() => setActiveModule('sos_map')}
+                />
+              </ErrorBoundary>
             )}
 
             {activeModule === 'tourist_tracking' && (
-              <ModuleTouristTracking
-                language={language}
-                tourists={tourists}
-                onLogAudit={handleLogAudit}
-                onDispatchToTourist={(tourist) => {
-                  setActiveModule('sos_map');
-                }}
-                onSendSmsToTourist={(tourist) => {
-                  setActiveModule('broadcast');
-                }}
-                onMarkSafe={(touristId) => {
-                  setTourists((prev) =>
-                    prev.map((t) => (t.id === touristId ? { ...t, safetyStatus: 'Safe' } : t))
-                  );
-                }}
-                prefilledTouristId={prefilledTouristId}
-              />
+              <ErrorBoundary componentName="Tourist Tracking & Statutory Interception">
+                <ModuleTouristTracking
+                  language={language}
+                  tourists={tourists}
+                  onLogAudit={handleLogAudit}
+                  onDispatchToTourist={(tourist) => {
+                    setActiveModule('sos_map');
+                  }}
+                  onSendSmsToTourist={(tourist) => {
+                    setActiveModule('broadcast');
+                  }}
+                  onMarkSafe={(touristId) => {
+                    setTourists((prev) =>
+                      prev.map((t) => (t.id === touristId ? { ...t, safetyStatus: 'Safe' } : t))
+                    );
+                  }}
+                  prefilledTouristId={prefilledTouristId}
+                />
+              </ErrorBoundary>
             )}
 
             {activeModule === 'sos_map' && (
-              <ModuleSOSMap
-                language={language}
-                incidents={incidents}
-                units={units}
-                stations={stations}
-                onDispatchUnit={handleDispatchUnit}
-                onResolveIncident={handleResolveIncident}
-                onAddMockSos={handleAddMockSos}
-              />
+              <ErrorBoundary componentName="SOS Incident Room & Tactical Map">
+                <ModuleSOSMap
+                  language={language}
+                  incidents={incidents}
+                  units={units}
+                  stations={stations}
+                  onDispatchUnit={handleDispatchUnit}
+                  onResolveIncident={handleResolveIncident}
+                  onAddMockSos={handleAddMockSos}
+                />
+              </ErrorBoundary>
             )}
 
             {activeModule === 'broadcast' && (
-              <ModuleBroadcast
-                language={language}
-                broadcasts={broadcasts}
-                onSendBroadcast={handleSendBroadcast}
-              />
+              <ErrorBoundary componentName="Geofence Broadcast System">
+                <ModuleBroadcast
+                  language={language}
+                  broadcasts={broadcasts}
+                  onSendBroadcast={handleSendBroadcast}
+                />
+              </ErrorBoundary>
             )}
 
             {activeModule === 'analytics_audit' && (
-              <ModuleAnalyticsAudit
-                language={language}
-                auditLogs={auditLogs}
-              />
+              <ErrorBoundary componentName="Audit Vault & Blockchain Verification">
+                <ModuleAnalyticsAudit
+                  language={language}
+                  auditLogs={auditLogs}
+                  tourists={tourists}
+                  incidents={incidents}
+                />
+              </ErrorBoundary>
             )}
           </main>
 

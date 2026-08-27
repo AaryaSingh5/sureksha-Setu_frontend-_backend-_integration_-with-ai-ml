@@ -154,6 +154,8 @@ export interface AuditLog {
   reason?: InterceptionReason | string;
   details: string;
   ipAddress: string;
+  prevHash?: string | null;
+  entryHash?: string;
 }
 
 export interface AILog {

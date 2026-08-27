@@ -6,14 +6,21 @@
   "scripts": {
     "server": "tsx server/index.ts",
     "client": "vite --port=3000 --host=0.0.0.0",
-    "risk-engine": "node scripts/start-risk-engine.js",
-    "dev": "concurrently -p \"[{name}]\" -n \"SERVER,CLIENT,RISK\" -c \"cyan,yellow,green\" \"npm run server\" \"npm run client\" \"npm run risk-engine\"",
+    "risk-engine": "cd risk_engine && (if not exist venv python -m venv venv) && venv\\Scripts\\python -m pip install -r requirements.txt && venv\\Scripts\\python -m uvicorn main:app --port 8001 --host 127.0.0.1",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT,RISK\" -c \"cyan,yellow,green\" \"npm run server\" \"npm run client\" \"npm run risk-engine\"",
     "build": "vite build",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "ble:gateway": "node ble_gateway_receiver.js",
+    "test:mesh": "tsx tests/test_sos_mesh.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist suraksha_setu.db",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/cors": "^2.8.19",
@@ -33,6 +40,8 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",

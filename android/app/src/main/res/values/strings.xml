@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Suraksha Setu</string>
+    <string name="title_activity_main">Suraksha Setu</string>
+    <string name="package_name">com.suraksha.setu</string>
+    <string name="custom_url_scheme">com.suraksha.setu</string>
+</resources>

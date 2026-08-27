@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db';
+import { all, get, run, insertAuditLogSecure } from '../db';
 
 const router = Router();
 
@@ -80,21 +80,16 @@ router.get('/:id', async (req, res) => {
     // Log lookup audit entry if requested
     if (req.query.audit === 'true') {
       const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-      await run(
-        `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
-          timestamp,
-          'Rajesh Kumar, IPS',
-          'IPS-7742',
-          'TOURIST_LOOKUP',
-          `${tourist.id} (${tourist.name})`,
-          'Safety Verification',
-          `Searched profile and GPS telemetry for ${tourist.name}`,
-          req.ip || '10.142.0.88'
-        ]
-      );
+      await insertAuditLogSecure({
+        timestamp,
+        officerName: 'Rajesh Kumar, IPS',
+        officerBadge: 'IPS-7742',
+        actionType: 'TOURIST_LOOKUP',
+        targetId: `${tourist.id} (${tourist.name})`,
+        reason: 'Safety Verification',
+        details: `Searched profile and GPS telemetry for ${tourist.name}`,
+        ipAddress: req.ip || '10.142.0.88'
+      });
     }
 
     res.json(formatTourist(tourist));

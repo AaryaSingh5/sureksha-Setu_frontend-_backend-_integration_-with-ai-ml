@@ -1,5 +1,6 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
+import crypto from 'crypto';
 
 const DB_PATH = path.resolve(process.cwd(), 'suraksha_setu.db');
 
@@ -37,6 +38,82 @@ export function all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
       else resolve(rows as T[]);
     });
   });
+}
+
+/**
+ * Computes SHA-256 hash for audit log chain:
+ * entry_hash = SHA256(prev_hash + officer_badge + action_type + target_id + timestamp + reason)
+ */
+export function computeAuditHash(
+  prevHash: string | null | undefined,
+  officerBadge: string,
+  actionType: string,
+  targetId: string,
+  timestamp: string,
+  reason: string
+): string {
+  const payload = `${prevHash || ''}${officerBadge || ''}${actionType || ''}${targetId || ''}${timestamp || ''}${reason || ''}`;
+  return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
+/**
+ * Thread-safe atomic insertion of audit log entries with tamper-evident cryptographic hash chaining.
+ */
+export async function insertAuditLogSecure(data: {
+  id?: string;
+  timestamp?: string;
+  officerName?: string;
+  officerBadge?: string;
+  actionType: string;
+  targetId?: string;
+  reason?: string;
+  details?: string;
+  ipAddress?: string;
+}): Promise<any> {
+  const id = data.id || `AUD-${Math.floor(1000 + Math.random() * 9000)}`;
+  const timestamp = data.timestamp || new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const officerName = data.officerName || 'Rajesh Kumar, IPS';
+  const officerBadge = data.officerBadge || 'IPS-7742';
+  const actionType = data.actionType;
+  const targetId = data.targetId || 'N/A';
+  const reason = data.reason || 'Standard Security Procedure';
+  const details = data.details || 'Command Center Action logged';
+  const ipAddress = data.ipAddress || '10.142.0.88 (NIC Secure Gateway)';
+
+  // Atomic transaction to prevent concurrent race conditions
+  await run('BEGIN IMMEDIATE');
+  try {
+    const lastRow = await get<any>('SELECT entry_hash FROM audit_logs ORDER BY rowid DESC LIMIT 1');
+    const prevHash: string | null = lastRow?.entry_hash || null;
+    const entryHash = computeAuditHash(prevHash, officerBadge, actionType, targetId, timestamp, reason);
+
+    await run(
+      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address, prev_hash, entry_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, timestamp, officerName, officerBadge, actionType, targetId, reason, details, ipAddress, prevHash, entryHash]
+    );
+
+    await run('COMMIT');
+
+    return {
+      id,
+      timestamp,
+      officerName,
+      officerBadge,
+      actionType,
+      targetId,
+      reason,
+      details,
+      ipAddress,
+      prevHash,
+      entryHash
+    };
+  } catch (error) {
+    try {
+      await run('ROLLBACK');
+    } catch (_) {}
+    throw error;
+  }
 }
 
 export async function initDatabase() {
@@ -178,7 +255,7 @@ export async function initDatabase() {
     )
   `);
 
-  // 8. Audit Logs table
+  // 8. Audit Logs table with tamper-evident cryptographic hash chaining
   await run(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
@@ -189,9 +266,21 @@ export async function initDatabase() {
       target_id TEXT,
       reason TEXT,
       details TEXT,
-      ip_address TEXT
+      ip_address TEXT,
+      prev_hash TEXT,
+      entry_hash TEXT NOT NULL
     )
   `);
+
+  // Migration: Ensure prev_hash & entry_hash exist on audit_logs
+  const auditCols = await all<{ name: string }>("PRAGMA table_info(audit_logs)");
+  const auditColNames = auditCols.map((c) => c.name);
+  if (!auditColNames.includes('prev_hash')) {
+    await run('ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT');
+  }
+  if (!auditColNames.includes('entry_hash')) {
+    await run('ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT');
+  }
 
   // 9. AI Logs table
   await run(`
@@ -208,6 +297,26 @@ export async function initDatabase() {
 
   // Seed default data if empty
   await seedInitialData();
+
+  // Backfill any unhashed legacy/existing rows so chain is valid from genesis
+  const unhashedRows = await all<any>('SELECT * FROM audit_logs WHERE entry_hash IS NULL OR entry_hash = ""');
+  if (unhashedRows.length > 0) {
+    console.log(`Backfilling cryptographic SHA-256 hash chain for ${unhashedRows.length} audit logs...`);
+    const allAuditLogs = await all<any>('SELECT * FROM audit_logs ORDER BY rowid ASC');
+    let runningPrevHash: string | null = null;
+    for (const log of allAuditLogs) {
+      const hash = computeAuditHash(
+        runningPrevHash,
+        log.officer_badge || '',
+        log.action_type || '',
+        log.target_id || '',
+        log.timestamp || '',
+        log.reason || ''
+      );
+      await run('UPDATE audit_logs SET prev_hash = ?, entry_hash = ? WHERE id = ?', [runningPrevHash, hash, log.id]);
+      runningPrevHash = hash;
+    }
+  }
 
   console.log('Database schema & seed initialization complete.');
 }
@@ -739,12 +848,22 @@ async function seedInitialData() {
     }
   ];
 
+  let seedPrevHash: string | null = null;
   for (const a of initialAuditLogs) {
-    await run(
-      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [a.id, a.timestamp, a.officer_name, a.officer_badge, a.action_type, a.target_id, a.reason, a.details, a.ip_address]
+    const entryHash = computeAuditHash(
+      seedPrevHash,
+      a.officer_badge,
+      a.action_type,
+      a.target_id,
+      a.timestamp,
+      a.reason
     );
+    await run(
+      `INSERT INTO audit_logs (id, timestamp, officer_name, officer_badge, action_type, target_id, reason, details, ip_address, prev_hash, entry_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [a.id, a.timestamp, a.officer_name, a.officer_badge, a.action_type, a.target_id, a.reason, a.details, a.ip_address, seedPrevHash, entryHash]
+    );
+    seedPrevHash = entryHash;
   }
 
   // Seed AI Logs
