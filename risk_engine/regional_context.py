@@ -155,6 +155,12 @@ def get_distance_from_nearest_safe_zone(lat, lon):
             min_dist = dist
     return min_dist
 
+def get_distance_to_zone_center(lat, lon, zone):
+    polygon = zone["polygon"]
+    center_lat = sum(p[0] for p in polygon) / len(polygon)
+    center_lon = sum(p[1] for p in polygon) / len(polygon)
+    return haversine_distance(lat, lon, center_lat, center_lon)
+
 def get_regional_context_risk(lat, lon, timestamp):
     """
     Computes regional risk contribution based on zone tier, hotspot proximity, and curfew rules.
@@ -162,6 +168,8 @@ def get_regional_context_risk(lat, lon, timestamp):
        dict: { "score": float, "reason": str, "geofence_status": int }
              geofence_status: 0 = safe, 1 = caution, 2 = restricted
     """
+    print(f"[DEBUG BACKEND] Received coordinates: lat={lat}, lon={lon}")
+
     score = 0
     reason_parts = []
     geofence_status = 0 # default safe
@@ -170,12 +178,14 @@ def get_regional_context_risk(lat, lon, timestamp):
     in_restricted = False
     in_caution = False
     in_safe = False
+    matched_zone = None
 
     for zone in RESTRICTED_ZONES:
         if is_inside_polygon(lat, lon, zone["polygon"]):
             in_restricted = True
             geofence_status = 2
             score += 30
+            matched_zone = zone
             reason_parts.append(f"Inside restricted geofence: {zone['name']}")
             break
 
@@ -185,6 +195,7 @@ def get_regional_context_risk(lat, lon, timestamp):
                 in_caution = True
                 geofence_status = 1
                 score += 15
+                matched_zone = zone
                 reason_parts.append(f"Inside caution geofence: {zone['name']}")
                 break
 
@@ -193,8 +204,24 @@ def get_regional_context_risk(lat, lon, timestamp):
             if is_inside_polygon(lat, lon, zone["polygon"]):
                 in_safe = True
                 geofence_status = 0
+                matched_zone = zone
                 reason_parts.append(f"Inside safe zone: {zone['name']}")
                 break
+
+    if matched_zone:
+        dist = get_distance_to_zone_center(lat, lon, matched_zone)
+        print(f"[DEBUG BACKEND] Matched geofence zone: {matched_zone['name']} (Tier: {matched_zone['tier']}), Calculated distance to center: {dist:.1f}m")
+    else:
+        # Find nearest zone
+        nearest_zone = None
+        min_dist = float('inf')
+        for z in RESTRICTED_ZONES + CAUTION_ZONES + SAFE_ZONES:
+            d = get_distance_to_zone_center(lat, lon, z)
+            if d < min_dist:
+                min_dist = d
+                nearest_zone = z
+        if nearest_zone:
+            print(f"[DEBUG BACKEND] Matched geofence zone: None (Outside all zones). Nearest zone is {nearest_zone['name']} at {min_dist:.1f}m")
 
     # If in open/unmapped areas, give a small warning if far from expected routes
     if not in_restricted and not in_caution and not in_safe:

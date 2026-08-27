@@ -215,5 +215,5 @@ def run_risk_evaluation(tourist_id, lat, lon, speed, battery_level, connectivity
         # if final_band in ["HIGH", "CRITICAL"]:
         #     from identity.audit_service import log_incident
         #     log_incident(tourist_id, explainability_object)
-            
+    print(f"[DEBUG BACKEND] Final Safety Band: {final_band}, Score: {final_score}")
     return explainability_object

@@ -147,6 +147,131 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
   // (e.g. Python service not running yet), so the map never breaks.
   const [geoFenceZones, setGeoFenceZones] = useState<GeoFenceZone[]>(MOCK_GEOFENCE_ZONES);
   const [usingLiveGeofences, setUsingLiveGeofences] = useState(false);
+  const [lastRiskResult, setLastRiskResult] = useState<any>(null);
+  const NO_ACTIVE_ZONE: GeoFenceZone = {
+    id: 'none',
+    name: 'No Zone (Outside Monitored Area)',
+    riskLevel: 'Safe',
+    description: 'You are currently outside all mapped geofence zones.',
+    center: { lat: 0, lng: 0 },
+    radiusKm: 0
+  };
+  // Live location telemetry & geofence evaluation loop
+  useEffect(() => {
+    if (locationConsent !== 'granted') return;
+
+    console.log('[GEOFENCE] Starting periodic GPS telemetry tracking loop...');
+
+    const trackLocation = () => {
+      if (!navigator.geolocation) return;
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          
+          console.log(`[GEOFENCE DEBUG] Current latitude: ${userLat}`);
+          console.log(`[GEOFENCE DEBUG] Current longitude: ${userLng}`);
+          console.log(`[GEOFENCE DEBUG] Location permission status: ${locationConsent}`);
+
+          // Update local coordinates
+          setLat(userLat);
+          setLng(userLng);
+          
+          // Construct current address string
+          const liveAddr = `Live GPS (${userLat.toFixed(4)}, ${userLng.toFixed(4)}) - Monitored Zone`;
+          setCurrentAddress(liveAddr);
+
+          // Update authenticatedUser location so maps and display sync
+          setAuthenticatedUser((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              currentLocation: {
+                lat: userLat,
+                lng: userLng,
+                address: liveAddr
+              }
+            };
+          });
+
+          // Send telemetry ping to Risk Engine
+          try {
+            const riskRes = await sendLocationPingAPI({
+              tourist_id: authenticatedUser?.id || 'TR-88219',
+              latitude: userLat,
+              longitude: userLng
+            });
+            console.log(`[GEOFENCE DEBUG] Received Risk Response:`, riskRes);
+            setLastRiskResult(riskRes);
+
+            // Update user safetyStatus based on risk response band
+            setAuthenticatedUser((prev) => {
+              if (!prev) return prev;
+              let nextStatus: 'Safe' | 'Watch' | 'SOS Active' = 'Safe';
+              if (riskRes.band === 'CRITICAL' || riskRes.band === 'HIGH') {
+                nextStatus = 'Watch';
+              }
+              if (prev.safetyStatus === 'SOS Active') {
+                nextStatus = 'SOS Active'; // Keep SOS Active if already triggered
+              }
+              return {
+                ...prev,
+                safetyStatus: nextStatus
+              };
+            });
+          } catch (pingErr) {
+            console.warn('[GEOFENCE] Telemetry ping failed:', pingErr);
+          }
+
+          // Evaluate Geofence Zone containment in frontend using Haversine formula
+          const getHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+            const R = 6371; // Earth radius in km
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLon = ((lon2 - lon1) * Math.PI) / 180;
+            const a =
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos((lat1 * Math.PI) / 180) *
+                Math.cos((lat2 * Math.PI) / 180) *
+                Math.sin(dLon / 2) *
+                Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+          };
+
+          let matchedZone: GeoFenceZone | null = null;
+          for (const zone of geoFenceZones) {
+            const dist = getHaversineDistance(userLat, userLng, zone.center.lat, zone.center.lng);
+            if (dist <= zone.radiusKm) {
+              matchedZone = zone;
+              break;
+            }
+          }
+
+          if (matchedZone) {
+            console.log(`[GEOFENCE DEBUG] Matched Zone: ${matchedZone.name} (Risk: ${matchedZone.riskLevel})`);
+            setActiveGeoFenceZone(matchedZone);
+          } else {
+            setActiveGeoFenceZone(NO_ACTIVE_ZONE);
+            console.log('[GEOFENCE DEBUG] Matched Zone: None (Outside all zones)');
+          }
+        },
+        (err) => {
+          console.warn('[GEOFENCE] Periodic location acquisition failed:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    };
+
+    // Run immediately and then every 5 seconds
+    trackLocation();
+    const intervalId = setInterval(trackLocation, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+      console.log('[GEOFENCE] Stopped periodic GPS telemetry tracking loop.');
+    };
+  }, [locationConsent, geoFenceZones, authenticatedUser?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1391,6 +1516,17 @@ export const TouristPortal: React.FC<TouristPortalProps> = ({
                       <span className={`w-1.5 h-1.5 rounded-full ${usingLiveGeofences ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                       {usingLiveGeofences ? 'LIVE GEOFENCE DATA' : 'OFFLINE SAMPLE DATA'}
                     </span>
+                  </div>
+
+                  {/* GPS & Risk Engine Debug Info */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-[10px] font-mono space-y-1 mt-2">
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Geofence Debug Console</div>
+                    <div>• GPS Coordinates: <span className="font-bold text-blue-600">{lat ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'Acquiring...'}</span></div>
+                    <div>• GPS Permission: <span className={`font-bold ${locationConsent === 'granted' ? 'text-emerald-600' : 'text-amber-600'}`}>{locationConsent || 'unknown'}</span></div>
+                    <div>• Active Zone Match: <span className="font-bold text-indigo-600">{activeGeoFenceZone ? activeGeoFenceZone.name : 'None'}</span></div>
+                    {lastRiskResult && (
+                      <div>• Risk Engine Response: <span className="font-bold text-red-600">Score {lastRiskResult.final_score} ({lastRiskResult.band})</span></div>
+                    )}
                   </div>
 
                   {/* Zone Buttons */}

@@ -276,7 +276,7 @@ export async function createAuditLogAPI(log: Partial<AuditLog>): Promise<AuditLo
 // ----------------------------------------------------
 
 export function getRiskEngineBaseUrl(): string {
-  return "http://localhost:8001";
+  return "http://127.0.0.1:8001";
 }
 
 export async function sendLocationPingAPI(ping: {
