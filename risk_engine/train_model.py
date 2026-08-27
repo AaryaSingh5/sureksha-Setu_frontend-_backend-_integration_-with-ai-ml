@@ -6,18 +6,22 @@ import joblib
 from datetime import datetime
 from sklearn.ensemble import IsolationForest
 
-from synthetic_data import generate_normal_trajectories
+from training_data_extraction import extract_training_data
 from feature_engineering import extract_feature_vector, FEATURE_NAMES
 
 def train_anomaly_model():
-    print("Generating training data...")
-    # Generate normal trajectories
-    df_raw = generate_normal_trajectories(num_tourists=100, points_per_tourist=30)
+    print("[MODEL TRAINING] Pulling historical telemetry from database...")
+    # Extract clean live trajectories
+    df_raw = extract_training_data(training_window_days=90)
     
-    print(f"Engineering features for {len(df_raw)} telemetry points...")
+    if df_raw.empty or len(df_raw) < 10:
+        print("[MODEL TRAINING] Error: Insufficient clean database telemetry to train the Isolation Forest model.")
+        return
+        
+    print(f"[MODEL TRAINING] Engineering features for {len(df_raw)} telemetry points...")
     feature_list = []
     
-    # We group by tourist to simulate historical tracking logic
+    # Group by tourist to simulate historical tracking logic
     for tourist_id, group in df_raw.groupby("tourist_id"):
         # Sort by timestamp
         group = group.sort_values("timestamp")
@@ -36,13 +40,12 @@ def train_anomaly_model():
             history.append(ping)
             
     X = np.array(feature_list)
-    print(f"Feature matrix shape: {X.shape}")
+    print(f"[MODEL TRAINING] Feature matrix shape: {X.shape}")
     
-    print("Fitting Isolation Forest model...")
-    # Train Isolation Forest on normal trajectories only
+    print("[MODEL TRAINING] Fitting Isolation Forest model on clean baseline data...")
     model = IsolationForest(
         n_estimators=100,
-        contamination=0.02,  # assume 2% anomaly threshold rate in training data
+        contamination=0.02,
         random_state=42
     )
     model.fit(X)
@@ -51,11 +54,22 @@ def train_anomaly_model():
     model_dir = os.path.dirname(__file__)
     model_path = os.path.join(model_dir, "model_v1.pkl")
     joblib.dump(model, model_path)
-    print(f"Saved trained model to {model_path}")
+    print(f"[MODEL TRAINING] Saved trained model to {model_path}")
+    
+    # Perform basic data-quality checks on the training telemetry
+    total_pings = len(df_raw)
+    pings_with_invalid_gps = df_raw[
+        (df_raw["latitude"] < -90) | (df_raw["latitude"] > 90) |
+        (df_raw["longitude"] < -180) | (df_raw["longitude"] > 180)
+    ].shape[0]
+    pct_invalid_gps = round((pings_with_invalid_gps / total_pings) * 100, 2)
+    
+    pings_with_zero_speed = df_raw[df_raw["speed"] <= 0].shape[0]
+    pct_zero_speed = round((pings_with_zero_speed / total_pings) * 100, 2)
     
     # Save metadata
     metadata = {
-        "model_version": "v1.0.0",
+        "model_version": "v1.1.0",
         "training_date": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "model_type": "Isolation Forest (unsupervised)",
         "features": FEATURE_NAMES,
@@ -76,19 +90,25 @@ def train_anomaly_model():
             "time_of_day_sin": 0.01,
             "time_of_day_cos": 0.01
         },
-        "training_data_source": "Synthetic Trajectories (Himachal Pradesh pilot region)",
-        "is_synthetic_disclosure": True,
+        "training_data_source": "suraksha_setu.db (location_pings table)",
+        "training_query_window": "trailing 90 days",
+        "training_row_count": total_pings,
+        "is_synthetic_disclosure": False,  # Explicitly stating this uses live data
+        "data_quality_report": {
+            "pct_invalid_gps_coordinates": pct_invalid_gps,
+            "pct_pings_with_zero_speed": pct_zero_speed,
+            "gaps_or_nulls": int(df_raw.isnull().sum().sum())
+        },
         "warning": (
-            "This model was trained entirely on synthetic movement trajectories simulating normal tourist hiking "
-            "and walking behavior in Kullu/Manali. Anomaly detection thresholds and feature distributions "
-            "must be calibrated with real historical field telemetry before production deployment."
+            "This model is trained on live, real-time historical tourist telemetry records in Himachal Pradesh. "
+            "It incorporates deterministic geofences and routes to identify contextual anomalies."
         )
     }
     
     metadata_path = os.path.join(model_dir, "metadata.json")
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=4)
-    print(f"Saved model metadata to {metadata_path}")
+    print(f"[MODEL TRAINING] Saved model metadata to {metadata_path}")
     
 if __name__ == "__main__":
     train_anomaly_model()

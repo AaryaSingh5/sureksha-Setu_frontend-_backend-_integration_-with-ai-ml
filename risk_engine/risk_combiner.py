@@ -49,7 +49,7 @@ def run_risk_evaluation(tourist_id, lat, lon, speed, battery_level, connectivity
     history.insert(0, current_ping)
     
     # 2. Regional Context calculations
-    reg_risk = regional_context.get_regional_context_risk(lat, lon, timestamp)
+    reg_risk = regional_context.get_regional_context_risk(lat, lon, timestamp, tourist_id)
     current_ping["geofence_status"] = reg_risk["geofence_status"]
     
     # 3. ML Anomaly calculation
@@ -66,6 +66,7 @@ def run_risk_evaluation(tourist_id, lat, lon, speed, battery_level, connectivity
         
     feature_vector = feature_engineering.extract_feature_vector(
         {
+            "tourist_id": tourist_id,
             "latitude": lat,
             "longitude": lon,
             "speed": speed,
@@ -93,7 +94,7 @@ def run_risk_evaluation(tourist_id, lat, lon, speed, battery_level, connectivity
         signal_loss = false_alarm_reducer.check_signal_persistence(history, "signal_loss", 5) # 5 minutes default for connectivity
         
     # Route deviation check
-    route_dist = regional_context.get_distance_from_route(lat, lon)
+    route_dist = regional_context.get_distance_from_route(lat, lon, tourist_id)
     route_deviation = route_dist > dev_tol
     
     # Unusual movement check (ML flagged anomaly or speed > 4m/s which is too fast for foot trek)

@@ -1,4 +1,10 @@
+import { Capacitor } from "@capacitor/core";
 import { SOSRecord, getQueuedSOSRecords, updateSOSRecordStatus } from "./db";
+import {
+  BACKEND_PORT,
+  DEFAULT_NATIVE_API_BASE_URL,
+  DEFAULT_RISK_ENGINE_BASE_URL
+} from "../config";
 import {
   TouristProfile,
   SOSIncident,
@@ -13,37 +19,61 @@ import {
 
 let isSyncing = false;
 
-
+/**
+ * Returns the active API base URL following the strict priority order:
+ * (a) Runtime localStorage override ('sos_api_base_url') if explicitly set
+ * (b) Native platform detection (Capacitor Android/iOS) -> DEFAULT_NATIVE_API_BASE_URL (http://10.0.96.233:8080/api/v1)
+ * (c) Genuinely a desktop/laptop web browser (not native app) -> http://${window.location.hostname}:8080/api/v1
+ * (d) Fallback -> DEFAULT_NATIVE_API_BASE_URL
+ */
 export function getApiBaseUrl(): string {
+  // Robust native platform detection
+  const isNative =
+    Capacitor.isNativePlatform() ||
+    (typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.())) ||
+    (typeof window !== 'undefined' && (window as any).Capacitor?.platform === 'android');
+
+  const detectedPlatform = typeof Capacitor.getPlatform === 'function' ? Capacitor.getPlatform() : 'unknown';
+  console.log(`[API-BASE-URL] Detection: isNativePlatform=${isNative}, platform=${detectedPlatform}`);
+
+  // (a) LocalStorage override takes highest priority if explicitly set
   if (typeof localStorage !== 'undefined') {
     const custom = localStorage.getItem('sos_api_base_url');
-    if (custom) {
-      let upgraded = custom;
-      if (upgraded.includes(':8000/')) {
-        upgraded = upgraded.replace(':8000/', ':8080/');
-      }
-      if (upgraded.includes('192.168.1.103')) {
-        upgraded = upgraded.replace('192.168.1.103', '192.168.1.104');
-      }
-      if (upgraded !== custom) {
-        localStorage.setItem('sos_api_base_url', upgraded);
-      }
-      return upgraded;
+    if (custom && custom.trim()) {
+      console.log(`[API-BASE-URL] Using localStorage override: ${custom.trim()}`);
+      return custom.trim();
     }
   }
 
-  // If running inside Capacitor Native Android App on phone, use Laptop LAN IP
-  const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+  // (b) Native Android/iOS App check MUST take priority BEFORE hostname check
+  // (because Capacitor on Android serves from origin http://localhost/ causing hostname to be "localhost")
   if (isNative) {
-    return 'http://192.168.1.104:8080/api/v1';
+    console.log(`[API-BASE-URL] Native Android App detected -> Using LAN target: ${DEFAULT_NATIVE_API_BASE_URL}`);
+    return DEFAULT_NATIVE_API_BASE_URL;
   }
 
-  // If running in browser (Laptop Dashboard / Web client), use current hostname on port 8080
+  // (c) Genuinely a web browser (laptop/desktop Authority Dashboard)
   if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:8080/api/v1`;
+    const browserUrl = `http://${window.location.hostname}:${BACKEND_PORT}/api/v1`;
+    console.log(`[API-BASE-URL] Web Browser detected -> Using hostname target: ${browserUrl}`);
+    return browserUrl;
   }
 
-  return 'http://192.168.1.104:8080/api/v1';
+  return DEFAULT_NATIVE_API_BASE_URL;
+}
+
+/**
+ * Helper to set or remove a runtime custom API base URL in localStorage.
+ * Allows switching backend IP on a physical phone without rebuilding the APK.
+ */
+export function setCustomApiBaseUrl(url?: string): void {
+  if (typeof localStorage !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('sos_api_base_url', url.trim());
+    } else {
+      localStorage.removeItem('sos_api_base_url');
+    }
+  }
 }
 export function getAuthToken(): string {
   if (typeof localStorage !== 'undefined') {
@@ -374,9 +404,8 @@ export async function verifyAuditChainAPI(): Promise<{
 // ----------------------------------------------------
 
 export function getRiskEngineBaseUrl(): string {
-  return "http://127.0.0.1:8001";
+  return DEFAULT_RISK_ENGINE_BASE_URL;
 }
-
 export async function sendLocationPingAPI(ping: {
   tourist_id: string;
   latitude: number;

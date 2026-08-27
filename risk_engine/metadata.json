@@ -1,6 +1,6 @@
 {
-    "model_version": "v1.0.0",
-    "training_date": "2026-08-26 18:06:05 UTC",
+    "model_version": "v1.1.0",
+    "training_date": "2026-08-27 05:51:09 UTC",
     "model_type": "Isolation Forest (unsupervised)",
     "features": [
         "latitude",
@@ -31,7 +31,14 @@
         "time_of_day_sin": 0.01,
         "time_of_day_cos": 0.01
     },
-    "training_data_source": "Synthetic Trajectories (Himachal Pradesh pilot region)",
-    "is_synthetic_disclosure": true,
-    "warning": "This model was trained entirely on synthetic movement trajectories simulating normal tourist hiking and walking behavior in Kullu/Manali. Anomaly detection thresholds and feature distributions must be calibrated with real historical field telemetry before production deployment."
+    "training_data_source": "suraksha_setu.db (location_pings table)",
+    "training_query_window": "trailing 90 days",
+    "training_row_count": 600,
+    "is_synthetic_disclosure": false,
+    "data_quality_report": {
+        "pct_invalid_gps_coordinates": 0.0,
+        "pct_pings_with_zero_speed": 0.0,
+        "gaps_or_nulls": 0
+    },
+    "warning": "This model is trained on live, real-time historical tourist telemetry records in Himachal Pradesh. It incorporates deterministic geofences and routes to identify contextual anomalies."
 }

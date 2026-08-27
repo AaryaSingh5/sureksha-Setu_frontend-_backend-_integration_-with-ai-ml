@@ -51,11 +51,12 @@ def extract_feature_vector(ping, history_pings=None):
         get_regional_context_risk
     )
     
-    dist_route = get_distance_from_route(lat, lon)
+    tourist_id = ping.get("tourist_id")
+    dist_route = get_distance_from_route(lat, lon, tourist_id)
     dist_safe = get_distance_from_nearest_safe_zone(lat, lon)
     
     # Geofence status (0=safe, 1=caution, 2=restricted)
-    ctx = get_regional_context_risk(lat, lon, timestamp)
+    ctx = get_regional_context_risk(lat, lon, timestamp, tourist_id)
     geofence_status = ctx["geofence_status"]
     
     # Cyclic time representation

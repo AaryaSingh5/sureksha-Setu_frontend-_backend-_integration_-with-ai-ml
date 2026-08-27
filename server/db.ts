@@ -70,7 +70,7 @@ export async function insertAuditLogSecure(data: {
   details?: string;
   ipAddress?: string;
 }): Promise<any> {
-  const id = data.id || `AUD-${Math.floor(1000 + Math.random() * 9000)}`;
+  const id = data.id || `AUD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const timestamp = data.timestamp || new Date().toISOString().replace('T', ' ').substring(0, 19);
   const officerName = data.officerName || 'Rajesh Kumar, IPS';
   const officerBadge = data.officerBadge || 'IPS-7742';
