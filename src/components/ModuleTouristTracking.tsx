@@ -78,6 +78,7 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
   const [toastMessage, setToastMessage] = useState('');
   const [isIssuingDid, setIsIssuingDid] = useState(false);
   const [issuedDidSuccess, setIssuedDidSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     if (!selectedTourist) return;
     const updated = tourists.find((t) => t.id === selectedTourist.id);
@@ -85,6 +86,7 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
       setSelectedTourist(updated);
     }
   }, [tourists]);
+  
   const handleIssueDid = async (tourist: TouristProfile) => {
     setIsIssuingDid(true);
     setIssuedDidSuccess(null);
