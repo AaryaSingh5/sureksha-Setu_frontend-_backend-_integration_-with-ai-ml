@@ -15,12 +15,15 @@ import {
   User,
   Globe,
   BadgeCheck,
-  Calendar
+  Calendar,
+  AlertTriangle,
+  Loader2,
+  Lock
 } from 'lucide-react';
 import { Language, TouristProfile, InterceptionReason } from '../types';
 import { i18n } from '../data/i18n';
 import { InterceptionModal } from './InterceptionModal';
-import { issueDigitalIdAPI } from '../lib/api';
+import { issueDigitalIdAPI, accessTelemetryAPI } from '../lib/api';
 
 interface ModuleTouristTrackingProps {
   language: Language;
@@ -35,6 +38,8 @@ interface ModuleTouristTrackingProps {
   onSendSmsToTourist: (tourist: TouristProfile) => void;
   onMarkSafe: (touristId: string) => void;
   prefilledTouristId?: string;
+  officerBadge: string;
+  officerName: string;
 }
 
 function formatRegistrationDate(isoString?: string): string {
@@ -66,18 +71,27 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
   onDispatchToTourist,
   onSendSmsToTourist,
   onMarkSafe,
-  prefilledTouristId
+  prefilledTouristId,
+  officerBadge,
+  officerName
 }) => {
   const t = i18n[language];
-  const [searchInput, setSearchInput] = useState(prefilledTouristId || 'TR-88219');
-  const [selectedTourist, setSelectedTourist] = useState<TouristProfile | null>(
-    tourists.find((t) => t.id === (prefilledTouristId || 'TR-88219')) || tourists[0]
-  );
+  const [searchInput, setSearchInput] = useState(prefilledTouristId || '');
+  const [selectedTourist, setSelectedTourist] = useState<TouristProfile | null>(null);
   const [pendingTouristId, setPendingTouristId] = useState<string | null>(null);
   const [showInterceptionModal, setShowInterceptionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isIssuingDid, setIsIssuingDid] = useState(false);
   const [issuedDidSuccess, setIssuedDidSuccess] = useState<string | null>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prefilledTouristId) {
+      setSearchInput(prefilledTouristId);
+      triggerSearch(prefilledTouristId);
+    }
+  }, [prefilledTouristId]);
 
   useEffect(() => {
     if (!selectedTourist) return;
@@ -131,35 +145,84 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
     setShowInterceptionModal(true);
   };
 
-  const handleConfirmInterception = (reason: InterceptionReason, notes: string) => {
+  const handleConfirmInterception = async (reason: InterceptionReason, notes: string) => {
     if (!pendingTouristId) return;
+
+    setAccessLoading(true);
+    setAccessError(null);
 
     const query = pendingTouristId.toLowerCase();
     const found = tourists.find(
       (tp) => (tp.id || '').toLowerCase() === query || (tp.name || '').toLowerCase().includes(query)
     );
 
-    if (found) {
-      setSelectedTourist(found);
-      setIssuedDidSuccess(found.digital_id?.startsWith('did:sih:') ? found.digital_id : null);
-      onLogAudit(
-        'TOURIST_LOOKUP',
-        (found.id || 'N/A') + ' (' + (found.name || 'Tourist') + ')',
-        reason,
-        `Accessed profile & telemetry. Notes: ${notes || 'None'}`
-      );
-      setToastMessage(`✓ Interception Verified: Audit Logged for ${found.name || 'Tourist'}`);
-      setShowInterceptionModal(false);
-      setPendingTouristId(null);
-    } else {
+    if (!found) {
       setToastMessage(`❌ No citizen record found for "${pendingTouristId}"`);
       setShowInterceptionModal(false);
       setPendingTouristId(null);
+      setAccessLoading(false);
+      return;
+    }
+
+    try {
+      setSelectedTourist(null); // Clear any previous telemetry until success is verified
+
+      const response = await accessTelemetryAPI(
+        found.id,
+        reason,
+        notes,
+        officerName,
+        officerBadge
+      );
+
+      const resolvedTourist = response.tourist;
+      setSelectedTourist(resolvedTourist);
+      setIssuedDidSuccess(resolvedTourist.digital_id?.startsWith('did:sih:') ? resolvedTourist.digital_id : null);
+      
+      setToastMessage(`✓ Interception Verified: Audit Logged for ${resolvedTourist.name || 'Tourist'}`);
+      setShowInterceptionModal(false);
+      setPendingTouristId(null);
+    } catch (err: any) {
+      console.error('Secure access log failed:', err);
+      setAccessError(err.message || 'Unable to securely log this access. Telemetry access was not completed.');
+      setShowInterceptionModal(false);
+    } finally {
+      setAccessLoading(false);
     }
   };
 
   return (
     <div className="space-y-6">
+
+      {/* Secure Logging Spinner Overlay */}
+      {accessLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-fade-in text-white">
+          <div className="bg-slate-900 border border-[#E8935C] p-8 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-xl">
+            <Loader2 className="w-12 h-12 text-[#E8935C] mx-auto animate-spin" />
+            <h4 className="text-md font-extrabold uppercase tracking-wider text-slate-100">SECURE AUDIT VALIDATION</h4>
+            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+              Authorizing access and creating audit record...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Access Error Banner */}
+      {accessError && (
+        <div className="p-4 bg-red-950/80 border border-red-500 text-red-100 text-xs rounded-xl flex flex-col gap-2 font-bold mb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse" />
+            <span>⚠️ Access Audit Failure</span>
+          </div>
+          <p className="text-slate-300 text-[11px] font-normal leading-relaxed">{accessError}</p>
+          <button 
+            onClick={() => setAccessError(null)} 
+            className="px-3 py-1 bg-red-950 hover:bg-slate-800 rounded text-[10px] self-end mt-1 text-white font-extrabold border border-red-500/50"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -235,7 +298,17 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
       </div>
 
       {/* TOURIST PROFILE DASHBOARD */}
-      {selectedTourist && (() => {
+      {!selectedTourist ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm space-y-4 flex flex-col items-center justify-center min-h-[300px]">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-[#E8935C] flex items-center justify-center text-[#E8935C] shadow-sm mb-2">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-black text-slate-900">Protected Telemetry Vault</h3>
+          <p className="text-xs text-slate-600 max-w-md leading-relaxed font-medium">
+            Tourist coordinates, emergency contacts, and live telemetry tracking records are encrypted and protected by statutory civil safety command guidelines. Please enter a valid Tourist ID above or select a Quick Demo pill to initialize secure interception auditing.
+          </p>
+        </div>
+      ) : (() => {
         const fullName = selectedTourist.full_name || selectedTourist.name || 'Tourist';
         const digitalId = selectedTourist.digital_id || selectedTourist.id || 'TR-DEMO';
         const touristUuid = selectedTourist.tourist_id || '8f7a9d1b-3c4e-4f52-a1b2-c3d4e5f67890';

@@ -59,6 +59,8 @@ export default function App() {
 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [prefilledTouristId, setPrefilledTouristId] = useState('');
+  const [officerBadge, setOfficerBadge] = useState<string>('IPS-7742');
+  const [officerName, setOfficerName] = useState<string>('Rajesh Kumar, IPS');
 
   // Fetch live master data from SQLite backend on startup and poll every 3 seconds
   useEffect(() => {
@@ -101,8 +103,8 @@ export default function App() {
     const newLog: AuditLog = {
       id: `AUD-${Math.floor(1000 + Math.random() * 9000)}`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      officerName: 'Rajesh Kumar, IPS',
-      officerBadge: 'IPS-7742',
+      officerName,
+      officerBadge,
       actionType,
       targetId,
       reason,
@@ -120,6 +122,13 @@ export default function App() {
     // Accepts demo credentials or badge input
     setUserRole('authority');
     setActiveModule('ai_hub');
+    setOfficerBadge(badgeId);
+    if (badgeId === 'IPS-7742') {
+      setOfficerName('Rajesh Kumar, IPS');
+    } else {
+      setOfficerName(`Officer ${badgeId}, IPS`);
+    }
+
     handleLogAudit(
       'AUTHORITY_LOGIN',
       `Officer ${badgeId}`,
@@ -340,6 +349,8 @@ export default function App() {
                   language={language}
                   tourists={tourists}
                   onLogAudit={handleLogAudit}
+                  officerBadge={officerBadge}
+                  officerName={officerName}
                   onDispatchToTourist={(tourist) => {
                     setActiveModule('sos_map');
                   }}
