@@ -26,3 +26,18 @@ export const FRONTEND_PORT = 3000;
 // 🔗 Derived Default API Base URLs
 export const DEFAULT_NATIVE_API_BASE_URL = `http://${BACKEND_LAN_IP}:${BACKEND_PORT}/api/v1`;
 export const DEFAULT_RISK_ENGINE_BASE_URL = `http://localhost:${RISK_ENGINE_PORT}`;
+
+// 🗺️ Google Maps Configuration
+export const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
+
+// 🏢 Pilot Corridor Default Command Center Location (Kullu - Manali, HP)
+export const COMMAND_CENTER_HQ_COORDS = {
+  lat: 32.2432,
+  lng: 77.1892,
+  name: 'Manali Police Command HQ (Sector 4)'
+};
+
