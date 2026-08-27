@@ -585,3 +585,23 @@ export async function verifyChainIntegrityAPI(): Promise<ChainVerification> {
 export const fetchAuditChainAPI = fetchChainAPI;
 export const verifyAuditBlockchainAPI = verifyChainIntegrityAPI;
 
+export async function accessTelemetryAPI(
+  touristId: string,
+  mandatoryReason: string,
+  caseReference: string,
+  officerName: string,
+  officerBadge: string
+): Promise<{ tourist: TouristProfile; auditEntry: AuditLog }> {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}/tourists/${touristId}/telemetry-access`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mandatoryReason, caseReference, officerName, officerBadge })
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Failed to log secure access (${res.status})`);
+  }
+  return await res.json();
+}
+

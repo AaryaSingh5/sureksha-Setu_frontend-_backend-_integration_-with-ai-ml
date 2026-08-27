@@ -194,4 +194,70 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
+// POST /api/v1/tourists/:id/telemetry-access - Secure audit-logged telemetry access
+router.post('/:id/telemetry-access', async (req, res) => {
+  try {
+    const { mandatoryReason, caseReference, officerName, officerBadge } = req.body;
+    const id = req.params.id;
+
+    if (!mandatoryReason) {
+      return res.status(400).json({ error: 'Mandatory statutory reason is required.' });
+    }
+
+    // 1. Fetch the target tourist profile from database
+    const tourist = await get('SELECT * FROM tourists WHERE id = ? OR tourist_id = ? OR digital_band_id = ?', [id, id, id]);
+    if (!tourist) {
+      return res.status(404).json({ error: 'Tourist profile not found.' });
+    }
+
+    // 2. Perform live reverse geocoding via Nominatim
+    let resolvedAddress = tourist.address || '';
+    if (tourist.lat && tourist.lng) {
+      try {
+        const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${tourist.lat}&lon=${tourist.lng}`;
+        const geoRes = await fetch(geoUrl, {
+          headers: { 'User-Agent': 'SurakshaSetuSafetyEngine/1.0' }
+        });
+        if (geoRes.ok) {
+          const geoData: any = await geoRes.json();
+          if (geoData && geoData.display_name) {
+            resolvedAddress = geoData.display_name;
+            // Persist the resolved address to database so it caches and is returned in future normal polls
+            await run('UPDATE tourists SET address = ? WHERE id = ?', [resolvedAddress, tourist.id]);
+          }
+        }
+      } catch (geoErr) {
+        console.warn('Reverse geocoding failed:', geoErr);
+        resolvedAddress = 'Unable to resolve address from current coordinates';
+      }
+    }
+
+    // 3. Write dynamic details description based on access
+    const details = `Accessed profile, emergency contact, and latest GPS telemetry. Case Ref: ${caseReference || 'None'}`;
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    // 4. Create and persist secure audit entry
+    const auditEntry = await insertAuditLogSecure({
+      timestamp,
+      officerName: officerName || 'Rajesh Kumar, IPS',
+      officerBadge: officerBadge || 'IPS-7742',
+      actionType: 'TOURIST_LOOKUP',
+      targetId: `${tourist.id} (${tourist.name})`,
+      reason: mandatoryReason,
+      details,
+      ipAddress: req.ip || '10.142.0.88 (NIC Secure Gateway)'
+    });
+
+    // 5. Update returned format
+    const updatedTourist = formatTourist({ ...tourist, address: resolvedAddress });
+
+    res.json({
+      tourist: updatedTourist,
+      auditEntry
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
