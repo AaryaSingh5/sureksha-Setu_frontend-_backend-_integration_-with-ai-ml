@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UserSearch,
   Search,
@@ -79,6 +79,14 @@ export const ModuleTouristTracking: React.FC<ModuleTouristTrackingProps> = ({
   const [isIssuingDid, setIsIssuingDid] = useState(false);
   const [issuedDidSuccess, setIssuedDidSuccess] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!selectedTourist) return;
+    const updated = tourists.find((t) => t.id === selectedTourist.id);
+    if (updated) {
+      setSelectedTourist(updated);
+    }
+  }, [tourists]);
+  
   const handleIssueDid = async (tourist: TouristProfile) => {
     setIsIssuingDid(true);
     setIssuedDidSuccess(null);

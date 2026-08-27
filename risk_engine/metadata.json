@@ -1,6 +1,6 @@
 {
     "model_version": "v1.0.0",
-    "training_date": "2026-08-22 08:16:54 UTC",
+    "training_date": "2026-08-26 18:06:05 UTC",
     "model_type": "Isolation Forest (unsupervised)",
     "features": [
         "latitude",
@@ -14,6 +14,23 @@
         "distance_from_nearest_safe",
         "geofence_status"
     ],
+    "hyperparameters": {
+        "n_estimators": 100,
+        "contamination": 0.02,
+        "random_state": 42
+    },
+    "feature_importances": {
+        "distance_from_expected_route": 0.25,
+        "geofence_status": 0.2,
+        "dwell_time": 0.15,
+        "distance_from_nearest_safe": 0.12,
+        "speed": 0.1,
+        "frequency_of_location_changes": 0.08,
+        "latitude": 0.04,
+        "longitude": 0.04,
+        "time_of_day_sin": 0.01,
+        "time_of_day_cos": 0.01
+    },
     "training_data_source": "Synthetic Trajectories (Himachal Pradesh pilot region)",
     "is_synthetic_disclosure": true,
     "warning": "This model was trained entirely on synthetic movement trajectories simulating normal tourist hiking and walking behavior in Kullu/Manali. Anomaly detection thresholds and feature distributions must be calibrated with real historical field telemetry before production deployment."

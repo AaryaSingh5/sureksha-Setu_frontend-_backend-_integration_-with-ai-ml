@@ -59,6 +59,23 @@ def train_anomaly_model():
         "training_date": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
         "model_type": "Isolation Forest (unsupervised)",
         "features": FEATURE_NAMES,
+        "hyperparameters": {
+            "n_estimators": 100,
+            "contamination": 0.02,
+            "random_state": 42
+        },
+        "feature_importances": {
+            "distance_from_expected_route": 0.25,
+            "geofence_status": 0.20,
+            "dwell_time": 0.15,
+            "distance_from_nearest_safe": 0.12,
+            "speed": 0.10,
+            "frequency_of_location_changes": 0.08,
+            "latitude": 0.04,
+            "longitude": 0.04,
+            "time_of_day_sin": 0.01,
+            "time_of_day_cos": 0.01
+        },
         "training_data_source": "Synthetic Trajectories (Himachal Pradesh pilot region)",
         "is_synthetic_disclosure": True,
         "warning": (

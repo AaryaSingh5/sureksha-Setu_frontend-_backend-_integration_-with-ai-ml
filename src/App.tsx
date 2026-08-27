@@ -325,7 +325,6 @@ export default function App() {
                 <ModuleAIHub
                   language={language}
                   clusters={clusters}
-                  aiLogs={aiLogs}
                   onInvestigateCluster={(cluster) => {
                     setPrefilledTouristId('TR-88219');
                     setActiveModule('tourist_tracking');
@@ -386,6 +385,8 @@ export default function App() {
                 <ModuleAnalyticsAudit
                   language={language}
                   auditLogs={auditLogs}
+                  tourists={tourists}
+                  incidents={incidents}
                 />
               </ErrorBoundary>
             )}

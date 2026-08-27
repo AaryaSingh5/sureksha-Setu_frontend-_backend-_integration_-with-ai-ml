@@ -18,7 +18,7 @@ import {
   RefreshCw,
   Database
 } from 'lucide-react';
-import { Language, AuditLog } from '../types';
+import { Language, AuditLog, TouristProfile, SOSIncident } from '../types';
 import { i18n } from '../data/i18n';
 import {
   verifyAuditChainAPI,
@@ -30,11 +30,15 @@ import {
 interface ModuleAnalyticsAuditProps {
   language: Language;
   auditLogs: AuditLog[];
+  tourists: TouristProfile[];
+  incidents: SOSIncident[];
 }
 
 export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
   language,
-  auditLogs
+  auditLogs,
+  tourists,
+  incidents
 }) => {
   const t = i18n[language];
   const [searchFilter, setSearchFilter] = useState('');
@@ -162,6 +166,10 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
     link.click();
     document.body.removeChild(link);
   };
+  
+  const totalIncidents = incidents ? incidents.length : 0;
+  const resolvedIncidents = incidents ? incidents.filter((i) => i.status === 'Resolved').length : 0;
+  const resolutionRate = totalIncidents > 0 ? ((resolvedIncidents / totalIncidents) * 100).toFixed(1) : '100.0';
 
   return (
     <div className="space-y-6">
@@ -185,89 +193,67 @@ export const ModuleAnalyticsAudit: React.FC<ModuleAnalyticsAuditProps> = ({
 
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-slate-500 text-xs font-bold uppercase">{t.resolutionRate}</div>
-            <div className="text-2xl font-black text-[#1B2A4A] mt-1 font-mono">96.4%</div>
-            <div className="text-[11px] text-blue-700 font-bold mt-0.5">342 incidents resolved</div>
+            <div className="text-2xl font-black text-[#1B2A4A] mt-1 font-mono">{resolutionRate}%</div>
+            <div className="text-[11px] text-blue-700 font-bold mt-0.5">{resolvedIncidents} / {totalIncidents} resolved</div>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div className="text-slate-500 text-xs font-bold uppercase">Tamper-Proof Audit Chain</div>
-            <div className="text-2xl font-black text-[#138808] mt-1 font-mono">SHA-256</div>
+            <div className="text-slate-500 text-xs font-bold uppercase">Audit Log Count</div>
+            <div className="text-2xl font-black text-[#138808] mt-1 font-mono">{auditLogs.length} Entries</div>
             <div className="text-[11px] text-slate-600 font-medium mt-0.5">Cryptographically chained logs</div>
           </div >
 
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <div className="text-slate-500 text-xs font-bold uppercase">Monthly Inflow Sync</div>
-            <div className="text-2xl font-black text-purple-700 mt-1 font-mono">1.42 Lakhs</div>
-            <div className="text-[11px] text-slate-600 font-medium mt-0.5">Verified tourist check-ins</div>
+            <div className="text-slate-500 text-xs font-bold uppercase">Registered Tourists</div>
+            <div className="text-2xl font-black text-purple-700 mt-1 font-mono">{tourists.length} Tourists</div>
+            <div className="text-[11px] text-slate-600 font-medium mt-0.5">Active in safety database</div>
           </div>
 
         </div >
 
         {/* Visual Charts / Breakdown Mockup */}
-        < div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6" >
+        <div className="mt-6">
 
-          {/* Chart 1: Frequent Incident Zones Bar */}
-          < div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3" >
+          {/* Chart 1: Frequent Incident Zones Bar (Full Width) */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
             <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
               {t.frequentZones}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div>
-                <div className="flex justify-between text-slate-700 mb-1 font-medium">
+                <div className="flex justify-between text-slate-700 mb-1 font-medium text-xs">
                   <span>1. Solang Trekking Trail, Kullu (HP)</span>
                   <span className="font-mono text-[#1B2A4A] font-bold">42 incidents</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
                   <div className="h-full bg-[#E8935C] w-[84%]"></div>
                 </div>
               </div>
 
               <div>
-                <div className="flex justify-between text-slate-700 mb-1 font-medium">
+                <div className="flex justify-between text-slate-700 mb-1 font-medium text-xs">
                   <span>2. Dashashwamedh Ghat Alleys, Varanasi (UP)</span>
                   <span className="font-mono text-[#1B2A4A] font-bold">28 incidents</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
                   <div className="h-full bg-[#E8935C] w-[56%]"></div>
                 </div>
               </div>
 
               <div>
-                <div className="flex justify-between text-slate-700 mb-1 font-medium">
+                <div className="flex justify-between text-slate-700 mb-1 font-medium text-xs">
                   <span>3. Canacona Tidal Cliffs, Goa</span>
                   <span className="font-mono text-[#1B2A4A] font-bold">19 incidents</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="w-full h-3 rounded-full bg-slate-200 overflow-hidden">
                   <div className="h-full bg-[#E8935C] w-[38%]"></div>
                 </div>
               </div>
             </div>
-          </div >
+          </div>
 
-          {/* Chart 2: Tourist Inflow vs Anomaly Trend */}
-          < div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3" >
-            <div className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-              {t.inflowVsRisk}
-            </div>
-
-            <div className="h-32 flex items-end justify-between gap-2 pt-4 px-2 border-b border-slate-200">
-              {['May', 'Jun', 'Jul', 'Aug (Cur)'].map((m, idx) => {
-                const heightPct = [40, 65, 85, 55][idx];
-                return (
-                  <div key={m} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                    <div
-                      style={{ height: `${heightPct}%` }}
-                      className="w-full bg-gradient-to-t from-[#1B2A4A] to-[#E8935C] rounded-t hover:brightness-110 transition shadow-sm"
-                    ></div>
-                    <span className="text-[10px] text-slate-600 font-bold">{m}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div >
-
-        </div >
+        </div>
       </div >
 
       {/* TABS SELECTOR FOR OFFICER ACTIVITY VS BLOCKCHAIN LEDGER */}

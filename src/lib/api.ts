@@ -406,7 +406,6 @@ export async function verifyAuditChainAPI(): Promise<{
 export function getRiskEngineBaseUrl(): string {
   return DEFAULT_RISK_ENGINE_BASE_URL;
 }
-
 export async function sendLocationPingAPI(ping: {
   tourist_id: string;
   latitude: number;
